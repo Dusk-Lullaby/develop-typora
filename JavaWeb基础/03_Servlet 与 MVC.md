@@ -40,7 +40,120 @@ public Enumeration<String> getInitParameterNames();
 
 #### 1.2.3 Servlet 案例
 
+```java
+package com.sonnet.Servlet;
 
+import jakarta.servlet.*;
+
+import java.io.IOException;
+import java.util.Enumeration;
+
+public class FirstServlet implements Servlet {
+
+    private ServletConfig servletConfig;
+
+    // Servlet 的实例在该Servlet处理的第一次请求的时候才会创建，创建之后立刻调用初始化方法，完成Servlet初始化
+    public FirstServlet() {
+        System.out.println("create Servlet instance");
+    }
+
+    // Servlet初始化，只有初始化完成的Servlet才能提供处理请求的服务
+    // init方法在该Servlet对象第一次处理请求的时候才调用
+    @Override
+    public void init(ServletConfig servletConfig) throws ServletException {
+        this.servletConfig = servletConfig;
+        // 获取Servlet配置的所有参数名称
+        Enumeration<String> initParameterNames = servletConfig.getInitParameterNames();
+        while (initParameterNames.hasMoreElements()) {
+            // 获取下一个参数名
+            // 即便是第一个元素，也必须先执行 nextElement()，
+            // 因为集合在刚初始化完成时，游标处于第一个元素之前（可以理解为停留在位置 -1）。
+            String parameterName = initParameterNames.nextElement();
+            // 获取给定参数名称的参数值
+            String parameterValue = servletConfig.getInitParameter(parameterName);
+            System.out.println(parameterName + " -> " + parameterValue);
+        }
+        System.out.println("Servlet init complete");
+    }
+
+    // 获取Servlet配置
+    @Override
+    public ServletConfig getServletConfig() {
+        return servletConfig;
+    }
+
+    // 处理请求的服务方法
+    @Override
+    public void service(ServletRequest servletRequest, ServletResponse servletResponse) throws ServletException, IOException {
+        System.out.println("Servlet handle request and response");
+        servletResponse.setContentType("text/html;charset=UTF-8");
+        //servletResponse.getWriter().write("FirstServlet 运行成功");
+    }
+
+    @Override
+    public String getServletInfo() {
+        return "";
+    }
+
+    // Servlet销毁，不在提供服务
+    // 在tomcat服务器关闭之前，Servlet被销毁
+    @Override
+    public void destroy() {
+        System.out.println("Servlet destroy, no longer provide service");
+    }
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+    <servlet>
+        <servlet-name>firstServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.FirstServlet</servlet-class>
+        <init-param>
+            <param-name>characterEncoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+        <init-param>
+            <param-name>secondParameter</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>firstServlet</servlet-name>
+        <url-pattern>/first</url-pattern>
+    </servlet-mapping>
+</web-app>
+
+```
+
+<font color = blue>结论</font>
+
+<font color = "red">**Servlet 在第一次被请求的时候，由容器（如 Tomcat）创建实例，紧接着就由该容器调用该 Servlet 的 `init`方法完成初始化，然后由容器调用该 Servlet 的`service`方法进行请求处理，请求处理完成后，Servlet 并不会消亡，而是跟随容器共存亡，在容器关闭之前，由容器调用 Servlet 的`destroy`方法进行销毁**</font>	
+
+<font color = "blue">JSP本质</font>
+
+```java
+package org.apache.jsp;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import javax.servlet.jsp.*;
+public final class index_jsp extends org.apache.jasper.runtime.HttpJspBase
+    implements org.apache.jasper.runtime.JspSourceDependent,
+org.apache.jasper.runtime.JspSourceImports {
+}
+```
+
+
+
+![](img/jsp本质.png)
+
+由此可以得出：<font color = "red">JSP  的本质就是Servlet，只是 JSP 注重的是页面展示的内容，而Servlet注重的是业务逻辑的处理</font>
 
 ### 1.3 请求处理与响应
 
@@ -74,8 +187,7 @@ String getCharacterEncoding();
 //设置请求的字符集编码
 void setCharacterEncoding(String charset) throws
 UnsupportedEncodingException;
-//从请求中获取字符流，该字符流只能读取请求体中的数据信息，与下面的 getInputStream 方法只
-能二选一
+//从请求中获取字符流，该字符流只能读取请求体中的数据信息，与下面的 getInputStream 方法只能二选一
 BufferedReader getReader() throws IOException;
 //从请求中获取字节流，该字节流只能读取请求体中的数据信息
 ServletInputStream getInputStream() throws IOException;
@@ -87,7 +199,170 @@ RequestDispatcher getRequestDispatcher(String path);
 
 <font color = "blue">示例</font>
 
+`FirstServlet`
 
+```java
+package com.sonnet.Servlet;
+
+import jakarta.servlet.*;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Map;
+import java.util.function.DoubleToIntFunction;
+
+public class FirstServlet implements Servlet {
+
+    private ServletConfig servletConfig;
+
+    // Servlet 的实例在该Servlet处理的第一次请求的时候才会创建，创建之后立刻调用初始化方法，完成Servlet初始化
+    public FirstServlet() {
+        System.out.println("create Servlet instance");
+    }
+
+    // Servlet初始化，只有初始化完成的Servlet才能提供处理请求的服务
+    // init方法在该Servlet对象第一次处理请求的时候才调用
+    @Override
+    public void init(ServletConfig servletConfig) throws ServletException {
+        this.servletConfig = servletConfig;
+        // 获取Servlet配置的所有参数名称
+        Enumeration<String> initParameterNames = servletConfig.getInitParameterNames();
+        while (initParameterNames.hasMoreElements()) {
+            // 获取下一个参数名
+            // 即便是第一个元素，也必须先执行 nextElement()，
+            // 因为集合在刚初始化完成时，游标处于第一个元素之前（可以理解为停留在位置 -1）。
+            String parameterName = initParameterNames.nextElement();
+            // 获取给定参数名称的参数值
+            String parameterValue = servletConfig.getInitParameter(parameterName);
+            System.out.println(parameterName + " -> " + parameterValue);
+        }
+        System.out.println("Servlet init complete");
+    }
+
+    // 获取Servlet配置
+    @Override
+    public ServletConfig getServletConfig() {
+        return servletConfig;
+    }
+
+    // 处理请求的服务方法
+    @Override
+    public void service(ServletRequest servletRequest, ServletResponse servletResponse) throws ServletException, IOException {
+        System.out.println("Servlet handle request and response");
+        servletResponse.setContentType("text/html;charset=UTF-8");
+        // 从请求中获取字符集编码
+        String characterEncoding = servletRequest.getCharacterEncoding();
+        System.out.println(characterEncoding);
+        // 设置字符集编码
+        servletRequest.setCharacterEncoding("UTF-8");
+        characterEncoding = servletRequest.getCharacterEncoding();
+        System.out.println(characterEncoding);
+        System.out.println("======================");
+        // 获取servletRequest对象中存储的属性名称
+        Enumeration<String> attributeNames = servletRequest.getAttributeNames();
+        System.out.println("attribute:");
+        while (attributeNames.hasMoreElements()) {
+            String attributeName = attributeNames.nextElement();
+            Object attribute = servletRequest.getAttribute(attributeName);
+            System.out.println(attributeName + " => " + attribute);
+        }
+        System.out.println("======================");
+        // 获取servletRequest对象中存储的参数名称
+        Enumeration<String> parameterNames = servletRequest.getParameterNames();
+        System.out.println("parameter:");
+        while (parameterNames.hasMoreElements()) {
+            String parameterName = parameterNames.nextElement();
+            String parameter = servletRequest.getParameter(parameterName);
+            System.out.println(parameterName + " => " + parameter);
+        }
+        System.out.println("==========================");
+        // 从请求中获取字符流
+        BufferedReader reader = servletRequest.getReader();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+        System.out.println("============================");
+        Map<String, String[]> parameterMap = servletRequest.getParameterMap();
+        parameterMap.forEach((k, v) -> System.out.println(k + " => " + Arrays.toString(v)));
+    }
+
+    @Override
+    public String getServletInfo() {
+        return "";
+    }
+
+    // Servlet销毁，不在提供服务
+    // 在tomcat服务器关闭之前，Servlet被销毁
+    @Override
+    public void destroy() {
+        System.out.println("Servlet destroy, no longer provide service");
+    }
+}
+```
+
+`web.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+    <servlet>
+        <servlet-name>firstServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.FirstServlet</servlet-class>
+        <init-param>
+            <param-name>characterEncoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+        <init-param>
+            <param-name>secondParameter</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>firstServlet</servlet-name>
+        <url-pattern>/first</url-pattern>
+    </servlet-mapping>
+</web-app>
+
+```
+
+`index.jsp`
+
+```jsp
+<%--
+  Created by IntelliJ IDEA.
+  User: sonnet
+  Date: 2026/9/3
+  Time: 16:59
+  To change this template use File | Settings | File Templates.
+--%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>welcome</title>
+</head>
+<body>
+<form action="first" method="post">
+    <div>
+        <input type="text" name="username">
+    </div>
+    <div>
+        <input type="password" name="password">
+    </div>
+    <div>
+        <input type="submit" value="login">
+    </div>
+</form>
+</body>
+</html>
+```
 
 ##### 1.3.2.2 POST请求测试
 
@@ -120,7 +395,18 @@ PrintWriter getWriter() throws IOException;
 
 <font color = "blue">示例</font>
 
-
+```java
+System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
+servletResponse.setCharacterEncoding("UTF-8");
+System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
+System.out.println("响应的字符集类型： " + servletResponse.getContentType());
+servletResponse.setContentType("text/html;charset=utf-8");
+// 向页面输出数据的输出流
+PrintWriter writer = servletResponse.getWriter();
+writer.println("login request processed");
+writer.flush();
+writer.close();
+```
 
 #### 1.3.4 HTTP 请求和响应
 
@@ -184,7 +470,20 @@ void doDelete(HttpServletRequestreq,HttpServletResponse res);
 
 ##### 1.3.4.4 案例
 
-
+```java
+System.out.println("======================");
+System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
+servletResponse.setCharacterEncoding("UTF-8");
+System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
+System.out.println("响应的字符集类型： " + servletResponse.getContentType());
+servletResponse.setContentType("text/html;charset=utf-8");
+System.out.println("响应的字符集类型： " + servletResponse.getContentType());
+// 向页面输出数据的输出流
+PrintWriter writer = servletResponse.getWriter();
+writer.println("login request processed");
+writer.flush();
+writer.close();
+```
 
 #### 1.3.5 Servlet 交互流程
 
