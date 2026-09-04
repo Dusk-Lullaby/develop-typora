@@ -470,19 +470,118 @@ void doDelete(HttpServletRequestreq,HttpServletResponse res);
 
 ##### 1.3.4.4 案例
 
+`SecondServlet`
+
 ```java
-System.out.println("======================");
-System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
-servletResponse.setCharacterEncoding("UTF-8");
-System.out.println("响应的字符集编码： " + servletResponse.getCharacterEncoding());
-System.out.println("响应的字符集类型： " + servletResponse.getContentType());
-servletResponse.setContentType("text/html;charset=utf-8");
-System.out.println("响应的字符集类型： " + servletResponse.getContentType());
-// 向页面输出数据的输出流
-PrintWriter writer = servletResponse.getWriter();
-writer.println("login request processed");
-writer.flush();
-writer.close();
+package com.sonnet.Servlet;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Enumeration;
+
+public class SecondServlet extends HttpServlet {
+
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        System.out.println("读取请求头部信息...");
+        Enumeration<String> headerNames = req.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String header = req.getHeader(headerName);
+            System.out.println(headerName + " => " + header);
+            System.out.println("========================");
+            String contextPath = req.getContextPath(); // 获取上下文路径
+            System.out.println("上下文路径：" + contextPath);
+            String requestURI = req.getRequestURI(); // 包含上下文路径在内的请求地址
+            requestURI = requestURI.replace(contextPath, "");
+            System.out.println("当前请求路径：" + requestURI);
+        }
+        System.out.println("=========================");
+        System.out.println("开始做出响应");
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("text/html;charset=UTF-8");
+        PrintWriter writer = resp.getWriter();
+        writer.println("请求已处理");
+        writer.flush();
+        writer.close();
+    }
+}
+
+```
+
+`second.jsp`
+
+```jsp
+<%--
+  Created by IntelliJ IDEA.
+  User: sonnet
+  Date: 2026/9/3
+  Time: 16:59
+  To change this template use File | Settings | File Templates.
+--%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>welcome</title>
+</head>
+<body>
+<form action="second" method="post">
+    <div>
+        <input type="text" name="username">
+    </div>
+    <div>
+        <input type="text" name="sex">
+    </div>
+    <div>
+        <input type="submit" value="test">
+    </div>
+</form>
+</body>
+</html>
+```
+
+`web.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+    <servlet>
+        <servlet-name>firstServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.FirstServlet</servlet-class>
+        <init-param>
+            <param-name>characterEncoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+        <init-param>
+            <param-name>secondParameter</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>firstServlet</servlet-name>
+        <url-pattern>/first</url-pattern>
+    </servlet-mapping>
+    
+    <servlet>
+        <servlet-name>secondServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.SecondServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>secondServlet</servlet-name>
+        <url-pattern>/second</url-pattern>
+    </servlet-mapping>
+</web-app>
 ```
 
 #### 1.3.5 Servlet 交互流程
@@ -514,21 +613,113 @@ void removeAttribute(String attributeName);
 
 <font color = "blue">示例</font>
 
+修改`web.xml`
 
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
 
+    <context-param>
+        <param-name>name</param-name>
+        <param-value>落几页诗</param-value>
+    </context-param>
 
+    <servlet>
+        <servlet-name>firstServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.FirstServlet</servlet-class>
+        <init-param>
+            <param-name>characterEncoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+        <init-param>
+            <param-name>secondParameter</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>firstServlet</servlet-name>
+        <url-pattern>/first</url-pattern>
+    </servlet-mapping>
+    
+    <servlet>
+        <servlet-name>secondServlet</servlet-name>
+        <servlet-class>com.sonnet.Servlet.SecondServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>secondServlet</servlet-name>
+        <url-pattern>/second</url-pattern>
+    </servlet-mapping>
+</web-app>
+```
+
+修改`SecondServlet`
+
+```java
+package com.sonnet.Servlet;
+
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Enumeration;
+
+public class SecondServlet extends HttpServlet {
+
+    @Override
+    public void init() throws ServletException {
+        ServletContext servletContext = getServletContext();
+        System.out.println("initParameter:");
+        Enumeration<String> initParameterNames = servletContext.getInitParameterNames();
+        while (initParameterNames.hasMoreElements()) {
+            String initParameterName = initParameterNames.nextElement();
+            String initParameterValue = servletContext.getInitParameter(initParameterName);
+            System.out.println(initParameterName + " => " + initParameterValue);
+        }
+        System.out.println("上下文路径：" + servletContext.getContextPath());
+    }
+
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        System.out.println("读取请求头部信息...");
+        Enumeration<String> headerNames = req.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String header = req.getHeader(headerName);
+            System.out.println(headerName + " => " + header);
+            System.out.println("========================");
+            String contextPath = req.getContextPath(); // 获取上下文路径
+            System.out.println("上下文路径：" + contextPath);
+            String requestURI = req.getRequestURI(); // 包含上下文路径在内的请求地址
+            requestURI = requestURI.replace(contextPath, "");
+            System.out.println("当前请求路径：" + requestURI);
+        }
+        System.out.println("=========================");
+        System.out.println("开始做出响应");
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("text/html;charset=UTF-8");
+        PrintWriter writer = resp.getWriter();
+        writer.println("请求已处理");
+        writer.flush();
+        writer.close();
+    }
+}
+```
 
 ## 2. MVC
 
 ### 2.1 什么是MVC
 
-模型-视图-控制器（MVC模式）是一种非常经典的软件架构模式，在UI框架和UI设计思路中扮演着非常
-
-重要的角色。从设计模式的角度来看，MVC模式是一种复合模式，它将多个设计模式在一种解决方案中
-
-结合起来，用来解决许多设计问题。MVC模式把用户界面交互分拆到不同的三种角色中，使应用程序被
-
-分成三个核心部件：Model（模型）、View（视图）、Control（控制器）
+模型-视图-控制器（MVC模式）是一种非常经典的软件架构模式，在UI框架和UI设计思路中扮演着非常重要的角色。从设计模式的角度来看，MVC模式是一种复合模式，它将多个设计模式在一种解决方案中结合起来，用来解决许多设计问题。MVC模式把用户界面交互分拆到不同的三种角色中，使应用程序被分成三个核心部件：Model（模型）、View（视图）、Control（控制器）
 
 ![](img/MVC.png)
 
@@ -550,7 +741,91 @@ MVC模式将它们分离以提高系统的灵活性和复用性，不使用MVC�
 
 将用户信息呈现在页面上
 
+`User`
 
+```java
+package com.sonnet.model;
+
+public class User {
+
+    private String name;
+
+    private String sex;
+
+    private int age;
+
+    public User(String name, String sex, int age) {
+        this.name = name;
+        this.sex = sex;
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", sex='" + sex + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+```
+
+`UserServlet`
+
+```java
+package com.sonnet.Servlet;
+
+import com.sonnet.model.User;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
+// @WebServlet 就表示标识的类是一个Servlet，不需要在web.xml中对该Servlet进行配置
+@WebServlet("/showUserInfo")
+public class UserServlet extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // 这个只是简单的数据模型，在这里演示使用，在实际开发的业务中，
+        // 往往数据的获取都会由业务层处理业务时从DAO获取，然后组装成整个模型
+        User user = new User("张三", "男", 25);
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("text/html;charset=UTF-8");
+        PrintWriter writer = resp.getWriter();
+        writer.println(user.toString());
+        writer.flush();
+        writer.close();
+    }
+}
+```
+
+`user.jsp`
+
+```jsp
+<%--
+  Created by IntelliJ IDEA.
+  User: sonnet
+  Date: 2026/9/4
+  Time: 20:09
+  To change this template use File | Settings | File Templates.
+--%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>显示用户信息</title>
+</head>
+<body>
+<%--超链接默认发送请求的方式是GET--%>
+<a href="showUserInfo">显示用户信息</a>
+</body>
+</html>
+```
 
 ## 3. 过滤器
 
@@ -591,7 +866,52 @@ Enumeration<String> getInitParameterNames();
 
 #### 3.2.3 案例
 
+```java
+package com.sonnet.filter;
 
+import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.annotation.WebInitParam;
+
+import java.io.IOException;
+
+/**
+ * 字符集编码过滤器
+ */
+@WebFilter(urlPatterns = "/*", initParams = {
+        @WebInitParam(name="encoding", value="UTF-8")
+})
+public class CharacterEncodingFilter implements Filter {
+
+    String encoding;
+
+    public CharacterEncodingFilter() {
+        System.out.println("Filter creation instance");
+    }
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        System.out.println("Filter init");
+        encoding = filterConfig.getInitParameter("encoding");
+    }
+
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+        System.out.println("Filter filter process");
+        servletRequest.setCharacterEncoding(encoding);
+        servletResponse.setCharacterEncoding(encoding);
+        // 多个过滤器会形成一条过滤器链，当前过滤器做完事情之后必须调用chain.doFilter方法
+        // 让下一个过滤器做事情，所有的过滤器做完事情之后，才会把请求送达Servlet，
+        // 如果过滤的请求不需要Servlet来处理，那么就不需要调用chain.Servlet方法，直接使用response对象做出响应即可
+        filterChain.doFilter(servletRequest, servletResponse);
+    }
+
+    @Override
+    public void destroy() {
+        System.out.println("Filter destroy");
+    }
+}
+```
 
 #### 3.2.4 HttpFilter 抽象类
 
