@@ -762,6 +762,8 @@ EL 能够简化 jsp 页面编码，但是，却不能进行逻辑判断，也不
 
 ![](img/格式化标签.png)
 
+*引入标签库`<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>`*
+
 * `<fmt:formaDate>`标签
 
   <font color = "blue">语法</font>
@@ -771,6 +773,12 @@ EL 能够简化 jsp 页面编码，但是，却不能进行逻辑判断，也不
   ```
 
   <font color = "blue">示例</font>
+
+  ```jsp
+  <td>
+      <fmt:formatDate value="${score.examDate}" pattern="yyyy-MM-dd HH:mm:ss"/>
+  </td>
+  ```
 
 * `<fmt:formatNumber>`标签
 
@@ -790,5 +798,18 @@ EL 能够简化 jsp 页面编码，但是，却不能进行逻辑判断，也不
 
   <font color = "blue">示例</font>
 
-  
+  ```jsp
+  <div>
+      货币类型数字：<fmt:formatNumber value="100" type="currency" />
+  </div>
+  <div>
+      数字格式化：<fmt:formatNumber value="12345.678902" type="number" maxIntegerDigits="4" maxFractionDigits="3" />
+  </div>
+  <div>
+      数字格式化:<fmt:formatNumber value="12345.678902" type="number" pattern="####.##"/>
+  </div>
+  <div>
+      百分比数字：<fmt:formatNumber value="12345.678902" type="percent" maxIntegerDigits="3" maxFractionDigits="2" />
+  </div>
+  ```
 
