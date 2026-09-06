@@ -76,3 +76,14 @@ git branch -M main
 git push -u origin main
 ```
 
+
+
+### 9. 命令补充
+
+*   `git reset HEAD~1`
+
+    （等同于使用默认参数 `--mixed`）核心作用是**撤销最新的 commit，同时将代码移出暂存区，但完全保留你在文件中的实际修改**。
+
+*   `git reset --hard HEAD~1` 
+
+    核心作用是**彻底撤销最新的一次 commit，并强制将所有代码恢复到上一次提交时的状态，直接丢弃所有修改**。
