@@ -274,11 +274,239 @@ public class DownloadServlet extends HttpServlet {
 
 ### 2.2 `EasyExcel`生成 Excel
 
+```java
+package com.sonnet.pojo;
 
+import com.alibaba.excel.annotation.ExcelProperty;
+
+public class Student {
+
+    // 这个name属性与excel中的表头中的哪一个属性对应
+    @ExcelProperty("姓名")
+    private String name;
+
+    @ExcelProperty("性别")
+    private String sex;
+
+    @ExcelProperty("年龄")
+    private  int age;
+
+    @ExcelProperty("班级")
+    private String className;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getSex() {
+        return sex;
+    }
+
+    public void setSex(String sex) {
+        this.sex = sex;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getClassName() {
+        return className;
+    }
+
+    public void setClassName(String className) {
+        this.className = className;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "name='" + name + '\'' +
+                ", sex='" + sex + '\'' +
+                ", age='" + age + '\'' +
+                ", className='" + className + '\'' +
+                '}';
+    }
+}
+```
+
+```java
+package com.sonnet.excel;
+
+import com.alibaba.excel.EasyExcel;
+import com.sonnet.pojo.Student;
+import org.apache.poi.ss.formula.functions.T;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ExcelUtil {
+
+    public static void main(String[] args) {
+        List<Student> students = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            Student student = new Student();
+            student.setName("张三" + i);
+            student.setAge(10 + i);
+            student.setSex(i % 2 == 0 ? "男" : "女");
+            student.setClassName("软工1班");
+            students.add(student);
+        }
+
+        // 如何将这个集合的数据中写入excel中
+        // excel必须有名称，存放位置
+        String excelPath = "java-web06/file/test.xlsx";
+        writeExcel(excelPath, Student.class, "信息表", students);
+    }
+
+    private static <T> void writeExcel(String excelPath, Class<T> clazz, String sheetName, List<T> dataList) {
+        // EasyExcel写excel时必须指定excel存放位置，
+        // 还需要指定写的时候excel的表头与属性的对应关系
+        EasyExcel.write(excelPath, clazz)
+                .sheet(sheetName) //指定写的时候sheet的名称
+                .doWrite(dataList); // 执行写数据操作
+    }
+}
+```
 
 ### 2.3 `EasyExcel` 解析 Excel
 
+```java
+package com.sonnet.excel;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.read.listener.ReadListener;
+import com.sonnet.pojo.Student;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ExcelUtil {
+
+    public static void main(String[] args) {
+        //List<Student> students = new ArrayList<>();
+        //for (int i = 0; i < 100; i++) {
+        //    Student student = new Student();
+        //    student.setName("张三" + i);
+        //    student.setAge(10 + i);
+        //    student.setSex(i % 2 == 0 ? "男" : "女");
+        //    student.setClassName("软工1班");
+        //    students.add(student);
+        //}
+
+        // 如何将这个集合的数据中写入excel中
+        // excel必须有名称，存放位置
+        //String excelPath = "java-web06/file/test.xlsx";
+        //writeExcel(excelPath, Student.class, "信息表", students);
+        String excelPath = "java-web06/file/test.xlsx";
+        List<Student> students = readExcel(excelPath, "信息表", Student.class);
+
+        System.out.println(students.size());
+    }
+
+    private static <T> List<T> readExcel(String excelPath, String sheetName, Class<T> clazz) {
+        List<T> dataList = new ArrayList<>();
+        ReadListener<T> readListener = new ReadListener<T>() {
+            @Override
+            public void invoke(T t, AnalysisContext analysisContext) {
+                System.out.println("读取了一行操作：" + t);
+                dataList.add(t);
+            }
+
+            @Override
+            public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+                System.out.println("excel读取一个sheet完毕");
+            }
+        };
+        // EasyExcel读取Excel时需要指定读取的excel的位置，
+        // 还需要指定读取的类型，因为这个类型就指定了excel表头与类型定义的属性的映射关系，
+        // 还需要指定行的监听器，因为EasyExcel是按行读取的，这个监听器就是感知一行的读取过程
+        EasyExcel.read(excelPath, clazz, readListener)
+                .sheet(sheetName) // 指定读取sheet的名称
+                .doRead(); // 执行读取操作
+        return dataList;
+    }
+
+    private static <T> void writeExcel(String excelPath, Class<T> clazz, String sheetName, List<T> dataList) {
+        // EasyExcel写excel时必须指定excel存放位置，
+        // 还需要指定写的时候excel的表头与属性的对应关系
+        EasyExcel.write(excelPath, clazz)
+                .sheet(sheetName) //指定写的时候sheet的名称
+                .doWrite(dataList); // 执行写数据操作
+    }
+}
+```
 
 ### 2.4 `EasyExcel` 导入导出
 
+```java
+package com.sonnet.excel;
+
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.read.listener.ReadListener;
+import com.alibaba.excel.write.metadata.WriteSheet;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ExcelUtil {
+
+// 每个sheet中写的最大数据
+private static final int MAX_COUNT_PER_SHEET = 5000;
+
+    public static <T> List<T> readExcel(InputStream inputStream, Class<T> clazz) {
+        List<T> dataList = new ArrayList<>();
+        ReadListener<T> readListener = new ReadListener<T>() {
+            @Override
+            public void invoke(T t, AnalysisContext analysisContext) {
+                dataList.add(t);
+            }
+
+            @Override
+            public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+            }
+        };
+        EasyExcel.read(inputStream, clazz, readListener)
+                .doReadAll();
+        return dataList;
+    }
+
+    public static <T> void writerExcel(OutputStream outputStream, Class<T> clazz, String sheetName, List<T> dataList) {
+        // EasyExcel写excel时必须指定excel存放位置，
+        // 还需要指定写的时候excel的表头与属性的对应关系
+        ExcelWriter writer = EasyExcel.write(outputStream, clazz).build();
+        // 数据总条数
+        int size = dataList.size();
+        // 计算sheet数量
+        // 例如：10000条数据，每个Sheet写5000条，则需要2个Sheet
+        int sheetCount = (size + MAX_COUNT_PER_SHEET - 1) / MAX_COUNT_PER_SHEET;
+        if (sheetCount == 0) {
+            sheetCount++;
+        }
+        for (int i = 0; i < sheetCount; i++) {
+            int start = i * MAX_COUNT_PER_SHEET;
+            int end = (i + 1) *  MAX_COUNT_PER_SHEET;
+            end = Math.min(end, size);
+            List<T> sheetData = dataList.subList(start, end);
+            WriteSheet writeSheet = new WriteSheet();
+            writeSheet.setSheetNo(i);
+            writeSheet.setSheetName(sheetName + (i + 1));
+            writer.write(sheetData, writeSheet);
+        }
+        writer.finish();
+    }
+}
+```
