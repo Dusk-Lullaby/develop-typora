@@ -1,4 +1,4 @@
-# 01_Maven
+# 01_Maven（详细看PDF）
 
 ## 1. Maven 简介
 
@@ -241,80 +241,108 @@ maven 对项目周期的构建分为3套
 ![](imgs/创建父工程.png)
 
 ```xml
-<dependencies>
-    <!-- servlet依赖的jar包start -->
-    <dependency>
-        <groupId>javax.servlet</groupId>
-        <artifactId>javax.servlet-api</artifactId>
-        <version>3.1.0</version>
-        <scope>provided</scope>
-    </dependency>
-    <!-- servlet依赖的jar包start -->
-    <!-- jsp依赖jar包start -->
-    <dependency>
-        <groupId>javax.servlet.jsp</groupId>
-        <artifactId>javax.servlet.jsp-api</artifactId>
-        <version>2.3.1</version>
-        <scope>provided</scope>
-    </dependency>
-    <!-- jsp依赖jar包end -->
-    <!--jstl标签依赖的jar包start -->
-    <dependency>
-        <groupId>javax.servlet</groupId>
-        <artifactId>jstl</artifactId>
-        <version>1.2</version>
-        <!--<scope>provided</scope>-->
-    </dependency>
-    <!-- JSTL实现包 -->
-    <dependency>
-        <groupId>org.apache.taglibs</groupId>
-        <artifactId>taglibs-standard-impl</artifactId>
-        <version>1.2.5</version>
-    </dependency>
-    <!--jstl标签依赖的jar包end -->
-    <dependency>
-        <groupId>c3p0</groupId>
-        <artifactId>c3p0</artifactId>
-        <version>0.9.1.2</version>
-    </dependency>
-    <!--beanUtils的依赖-->
-    <dependency>
-        <groupId>commons-beanutils</groupId>
-        <artifactId>commons-beanutils</artifactId>
-        <version>1.8.3</version>
-    </dependency>
-    <!--dbutils组件 封装了原生的jdbc-->
-    <dependency>
-        <groupId>commons-dbutils</groupId>
-        <artifactId>commons-dbutils</artifactId>
-        <version>1.6</version>
-    </dependency>
-    <!--logging-->
-    <dependency>
-        <groupId>commons-logging</groupId>
-        <artifactId>commons-logging</artifactId>
-        <version>1.1.1</version>
-    </dependency>
-    <!--mysql驱动-->
-    <dependency>
-        <groupId>mysql</groupId>
-        <artifactId>mysql-connector-java</artifactId>
-        <version>5.1.18</version>
-    </dependency>
-</dependencies>
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.apache.tomcat.maven</groupId>
-            <artifactId>tomcat7-maven-plugin</artifactId>
-            <version>2.1</version>
-            <configuration>
-                <port>8088</port>
-                <path>/</path>
-            </configuration>
-        </plugin>
-    </plugins>
-</build>
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.sonnet.parent</groupId>
+    <artifactId>my-maven-study01</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>my-maven-study01-pojo</module>
+        <module>my-maven-study01-utils</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- servlet依赖的jar包start -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- servlet依赖的jar包start -->
+        <!-- jsp依赖jar包start -->
+        <dependency>
+            <groupId>javax.servlet.jsp</groupId>
+            <artifactId>javax.servlet.jsp-api</artifactId>
+            <version>2.3.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- jsp依赖jar包end -->
+        <!--jstl标签依赖的jar包start -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>jstl</artifactId>
+            <version>1.2</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <!-- JSTL实现包 -->
+        <dependency>
+            <groupId>org.apache.taglibs</groupId>
+            <artifactId>taglibs-standard-impl</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+        <!--jstl标签依赖的jar包end -->
+        <dependency>
+            <groupId>c3p0</groupId>
+            <artifactId>c3p0</artifactId>
+            <version>0.9.1.2</version>
+        </dependency>
+        <!--beanUtils的依赖-->
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.8.3</version>
+        </dependency>
+        <!--dbutils组件 封装了原生的jdbc-->
+        <dependency>
+            <groupId>commons-dbutils</groupId>
+            <artifactId>commons-dbutils</artifactId>
+            <version>1.6</version>
+        </dependency>
+        <!--logging-->
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+        <!--mysql驱动-->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.tomcat.maven</groupId>
+                <artifactId>tomcat7-maven-plugin</artifactId>
+                <version>2.1</version>
+                <configuration>
+                    <port>8088</port>
+                    <path>/</path>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
 ```
 
 ### 2.2 maven-pojo
@@ -465,27 +493,35 @@ public class DataSourceConfig {
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <parent>
-        <groupId>com.sonnet.parent</groupId>
-        <artifactId>maven-user</artifactId>
-        <version>1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+<c3p0-config>
+    <default-config>
+        <property name="driverClass">com.mysql.cj.jdbc.Driver</property>
+        <property name="jdbcUrl">
+            jdbc:mysql://127.0.0.1:3306/maven_lesson?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=Asia/Shanghai
+        </property>
 
-    <groupId>com.sonnet.utils</groupId>
-    <artifactId>maven-user-utills</artifactId>
-
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-</project>
+        <property name="user">root</property>
+        <property name="password">root</property>
+        <!--
+        初始化的连接数量 在连接池里面初始化10个连接对象
+        -->
+        <property name="initialPoolSize">10</property>
+        <!--
+        最大空闲时间
+        某一个连接对象空闲时长最多是30s，超过了30s，该连接对象会被自动回收
+        -->
+        <property name="maxIdleTime">30</property>
+        <!--
+        最大连接数量
+        在连接池里面存在最多的连接数量
+        -->
+        <property name="maxPoolSize">100</property>
+        <!--
+        最小连接数量
+        -->
+        <property name="minPoolSize">10</property>
+    </default-config>
+</c3p0-config>
 ```
 
 ### 2.4 maven-dao
