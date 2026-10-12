@@ -2,11 +2,11 @@
 
 ## 1. 常用数学函数
 
-![常用数学函数](D:\Typora\develop\MySQL\image\常用数学函数.png)
+![常用数学函数](image\常用数学函数.png)
 
 ## 2. 常用字符串函数
 
-![字符串函数](D:\Typora\develop\MySQL\image\常用字符串函数.png)
+![字符串函数](image\常用字符串函数.png)
 
 <font color = 'blue'>示例：</font>
 
@@ -33,7 +33,7 @@ SELECT * FROM stu WHERE MOD(2026-LEFT(birthday,4),10)=0;
 
 ## 3. 日期和时间函数
 
-![日期和时间函数](D:\Typora\develop\MySQL\image\日期和时间函数.png)
+![日期和时间函数](image\日期和时间函数.png)
 
 <font color = "blue">示例：</font>
 
@@ -184,7 +184,7 @@ SELECT FORMAT(1.2353, 2);
 
 ### 5.2 系统信息函数
 
-![系统信息函数](D:\Typora\develop\MySQL\image\系统信息函数.png)
+![系统信息函数](image\系统信息函数.png)
 
 
 

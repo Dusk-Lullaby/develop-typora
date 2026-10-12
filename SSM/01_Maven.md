@@ -234,7 +234,7 @@ maven 对项目周期的构建分为3套
 
 
 
-# 2. Maven 分模块开发与设计
+## 2. Maven 分模块开发与设计
 
 ### 2.1 创建父工程
 
@@ -526,8 +526,6 @@ public class DataSourceConfig {
 
 ### 2.4 maven-dao
 
-
-
 ```java
 package com.sonnet.dao.com.sonnet.dao;
 
@@ -666,3 +664,6 @@ public class UserServlet extends HttpServlet {
 </body>
 </html>
 ```
+
+
+
