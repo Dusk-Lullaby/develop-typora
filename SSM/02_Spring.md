@@ -1817,7 +1817,7 @@ public class TestAccount {
 
 在 spring 中我们可以通过注解的方式来管理bean。
 
-**spring 中的注解：**
+##### 2.1.2.1 spring 中的注解
 
 *   **用于创建对象的注解**
 
@@ -1841,11 +1841,1393 @@ public class TestAccount {
 
         ![](imgs/AutoWired注解.png)
 
+*   **其他注入数据的注解**
+
+    *   `@Qualifier` 在按照注入的基础之上再按照名称注入。它给类成员注入的时候不能单独使用；但是在给方法参数注入时可以
+        *   属性value：用于指定注入的bean的id
+    *   `@Resource` 默认的情况下，可以直接按照bean的id注入，它可以独立使用
+        *   属性name：用于指定bean的id
+        *   属性type：按照类型进行注入
+        *   如果既不指定name也不指定type属性，这时将通过反射机制使用`byName`自动注入策略
+        *   总结：
+            *   如果同时指定了name和type，则从Spring上下文中找到唯一匹配的bean进行装配，找不到则抛出异常
+            *   如果指定了name，则从Spring上下文中查找名称（id）匹配的bean进行装配，找不到则抛出异常
+            *   如果指定了type，则从Spring上下文中找到类型匹配的唯一bean进行装配，找不到或者找到多个，都抛出异常
+            *   如果既没指定name也指定type，则自动按照`byName`方法进行装配
+            *   `@Resource`的作用相当于`@AutoWired`，只不过`AutoWired`按照`byType`自动注入
+    *   以上三个注入都只能注入其他bean类型的数据，而基本类型和String类型无法使用上述注入实现。另外集合类型的注入只能通过XML来实现
+    *   `@Value` 用于注入基本类型和String类型的数据
+        *   属性value：用于指定数据的值，它可以使用spring中的SpEL（也就是Spring的EL表达式）。
+            *   `SpEL`的写法：`$(表达式)`
+
 *   **改变作用域的注解**
 
     *   作用：类似于xml中bean标签中`scope`属性
+    *   `@Scope` 用于指定bean的作用范围
+        *   属性value：指定范围的取值，常用取值：Singleton（单例），prototype（多例）
 
 *   **和生命周期相关的注解**
 
     *   作用：类型于bean标签中的`init-method`和`destroy-method`属性
+    *   `@PostConstruct`
+    *   `@preDestroy`
+
+##### 2.1.2.2 示例
+
+`Dao`
+
+```java
+package com.sonnet.dao;
+
+public interface AccountDao {
+
+    void addAccount();
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
+
+//@Component(value = "accountDao")
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    @Override
+    public void addAccount() {
+        System.out.println("addAccount 被实现");
+    }
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import org.springframework.stereotype.Repository;
+
+//@Component(value = "accountService")
+@Repository
+public class AccountDaoImpl2 implements AccountDao {
+
+    @Override
+    public void addAccount() {
+        System.out.println("新增账户的方法实现了2222");
+    }
+}
+```
+
+`Service`
+
+```java
+package com.sonnet.service;
+
+public interface AccountService {
+
+    void addAccount();
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.Resource;
+
+@Service
+@Scope(value = "singleton") // 描述bean的作用域的注解 prototype多例bean singleton单例bean
+public class AccountServiceImpl implements AccountService {
+
+/*
+    //@Autowired // 依赖注入的注解，可以完成bean的自动注入
+    @Qualifier("accountDaoImpl")
+    AccountDao accountDao;
+*/
+
+    //@Resource(name = "accountDaoImpl2") // 默认按照名称进行匹配
+    //@Resource(type = AccountDao.class, name = "accountDaoImpl2") // 按照类型注入 容器中必须只能存在类型唯一的bean 否则抛异常
+    @Resource(type = AccountDao.class)
+    @Qualifier("accountDaoImpl2")
+    private AccountDao accountDao;
+
+    public void setAccountDao(AccountDao accountDao) {
+        this.accountDao = accountDao;
+    }
+
+    @Override
+    public void addAccount() {
+        System.out.println("addAccount");
+    }
+}
+```
+
+`pojo`
+
+```java
+package com.sonnet.pojo;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+@Component
+public class Animal {
+
+    @Value("1001")
+    private Integer id;
+
+    @Value("芙蓉花")
+    private String name;
+
+    @Value("green")
+    private String color;
+
+    @Value("2")
+    private Integer age;
+
+    // bean初始化的方法
+    @PostConstruct // 初始化方法执行的注解 init-method
+    public void init() {
+        System.out.println("init 执行了");
+    }
+
+    // bean销毁的方法
+    @PreDestroy // bean销毁的时候执行的方法 destroy-method
+    public void destroy() {
+        System.out.println("destroy 执行了");
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return "Animal{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", color='" + color + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+```
+
+`test`
+
+```java
+package com.sonnet;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class TestAccount {
+
+    @Test
+    public void test01() {
+        ApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        //AccountService accountService = (AccountService) context.getBean("accountServiceImpl");
+        //accountService.addAccount();
+        //AccountDao accountDao = (AccountDao) context.getBean("accountDaoImpl");
+        //accountDao.addAccount();
+
+        AccountService accountService1 = (AccountService) context.getBean("accountServiceImpl");
+        AccountService accountService2 = (AccountService) context.getBean("accountServiceImpl");
+        System.out.println(accountService2 == accountService1);
+    }
+}
+```
+
+```java
+package com.sonnet;
+
+import com.sonnet.pojo.Animal;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class TestAnimal {
+
+    public static void main(String[] args) {
+
+        ApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        Animal animal = (Animal) context.getBean("animal");
+        System.out.println(animal);
+        ((ClassPathXmlApplicationContext) context).close();
+    }
+}
+```
+
+### 2.2 使用注解配置改造IOC案例
+
+`pom.xml`
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.sonnet.parent</groupId>
+        <artifactId>spring-study</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.sonnet</groupId>
+    <artifactId>spring-study-account-annotation</artifactId>
+    <packaging>jar</packaging>
+
+    <name>spring-study-account-annotation</name>
+    <url>http://maven.apache.org</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!--spring核心依赖-->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.3.29</version>
+        </dependency>
+        <!--dbutils组件的依赖-->
+        <dependency>
+            <groupId>commons-dbutils</groupId>
+            <artifactId>commons-dbutils</artifactId>
+            <version>1.6</version>
+        </dependency>
+        <!--mysql的驱动-->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
+        <!--c3p0连接池-->
+        <dependency>
+            <groupId>c3p0</groupId>
+            <artifactId>c3p0</artifactId>
+            <version>0.9.1.2</version>
+        </dependency>
+        <!--junit单元测试依赖-->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+`pojo`
+
+```java
+package com.sonnet.pojo;
+
+public class Account {
+
+    private Integer id;
+
+    private String name;
+
+    private Double money;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Double getMoney() {
+        return money;
+    }
+
+    public void setMoney(Double money) {
+        this.money = money;
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", money=" + money +
+                '}';
+    }
+}
+```
+
+`dao`
+
+```java
+package com.sonnet.dao;
+
+import com.sonnet.pojo.Account;
+
+import java.util.List;
+
+public interface AccountDao {
+
+    /**
+     * 查询所有账户信息
+     *
+     * @return 账户信息集合
+     */
+    List<Account> findAllAccount();
+
+    /**
+     * 查询指定的账户信息
+     *
+     * @param id 账户id
+     * @return 账户
+     */
+    Account findAccountById(Integer id);
+
+    /**
+     * 保存账户信息
+     *
+     * @param account 账户
+     */
+    void saveAccount(Account account);
+
+    /**
+     * 更新账户信息
+     *
+     * @param account 账户
+     */
+    void updateAccount(Account account);
+
+    /**
+     * 删除账户信息
+     *
+     * @param id 账户id
+     */
+    void deleteAccount(Integer id);
+
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.dbutils.handlers.BeanHandler;
+import org.apache.commons.dbutils.handlers.BeanListHandler;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.sql.SQLException;
+import java.util.List;
+
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    // 操作数据库的核心类
+    @Autowired
+    private QueryRunner runner;
+
+    //public void setRunner(QueryRunner runner) {
+    //    this.runner = runner;
+    //}
+
+    @Override
+    public List<Account> findAllAccount() {
+        String sql = "select * from account";
+        try {
+            return runner.query(sql, new BeanListHandler<Account>(Account.class));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Account findAccountById(Integer id) {
+        String sql = "select * from account where id = ?";
+        try {
+            return runner.query(sql, new BeanHandler<Account>(Account.class), id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void saveAccount(Account account) {
+        String sql = "insert into account(name, money) value(?,?)";
+        try {
+            runner.update(sql, account.getName(), account.getMoney());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set name=?, money=? where id=?";
+        try {
+            runner.update(sql, account.getName(), account.getMoney(), account.getId());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void deleteAccount(Integer id) {
+        String sql = "delete from account where id=?";
+        try {
+            runner.update(sql, id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+`service`
+
+```java
+package com.sonnet.service;
+
+import com.sonnet.pojo.Account;
+
+import java.util.List;
+
+public interface AccountService {
+
+    /**
+     * 查询所有账户信息
+     *
+     * @return 账户信息集合
+     */
+    List<Account> findAllAccount();
+
+    /**
+     * 查询指定的账户信息
+     *
+     * @param id 账户id
+     * @return 账户
+     */
+    Account findAccountById(Integer id);
+
+    /**
+     * 保存账户信息
+     *
+     * @param account 账户
+     */
+    void saveAccount(Account account);
+
+    /**
+     * 更新账户信息
+     *
+     * @param account 账户
+     */
+    void updateAccount(Account account);
+
+    /**
+     * 删除账户信息
+     *
+     * @param id 账户id
+     */
+    void deleteAccount(Integer id);
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service("accountService")
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Override
+    public List<Account> findAllAccount() {
+        return accountDao.findAllAccount();
+    }
+
+    @Override
+    public Account findAccountById(Integer id) {
+        return accountDao.findAccountById(id);
+    }
+
+    @Override
+    public void saveAccount(Account account) {
+        accountDao.saveAccount(account);
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        accountDao.updateAccount(account);
+    }
+
+    @Override
+    public void deleteAccount(Integer id) {
+        accountDao.deleteAccount(id);
+    }
+}
+```
+
+`applicationContext.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--
+        配置数据源
+            property：描述的是连接数据库所需要的用户名 密码 url 驱动类
+    -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/spring_lesson?useSSL=false&amp;serverTimezone=Asia/Shanghai"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="root"></property>
+    </bean>
+
+    <!--
+        管理QueryRunner核心对象
+    -->
+    <bean id="runner" class="org.apache.commons.dbutils.QueryRunner">
+        <!--将数据源注入到QueryRunner中-->
+        <constructor-arg name="ds" ref="dataSource"></constructor-arg>
+    </bean>
+
+</beans>
+```
+
+`test`
+
+```java
+package com.sonnet;
+
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import java.util.List;
+
+public class TestAccount {
+
+    @Test
+    public void test01() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("applicationContext.xml");
+        AccountService accountService = (AccountService) applicationContext.getBean("accountService");
+        List<Account> accountList = accountService.findAllAccount();
+        accountList.forEach(System.out::println);
+    }
+
+    @Test
+    public void test02() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("applicationContext.xml");
+        AccountService accountService = (AccountService) applicationContext.getBean("accountService");
+        Account account = accountService.findAccountById(1);
+        System.out.println(account);
+    }
+
+    @Test
+    public void test03() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("applicationContext.xml");
+        AccountService accountService = (AccountService) applicationContext.getBean("accountService");
+        Account account = new Account();
+        account.setName("wangwu");
+        account.setMoney(1000.0);
+        accountService.saveAccount(account);
+    }
+
+    @Test
+    public void test04() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("applicationContext.xml");
+        AccountService accountService = (AccountService) applicationContext.getBean("accountService");
+        Account account = new Account();
+        account.setId(3);
+        account.setMoney(10086.0);
+        account.setName("laoliu");
+        accountService.updateAccount(account);
+    }
+
+    @Test
+    public void test05() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("applicationContext.xml");
+        AccountService accountService = (AccountService) applicationContext.getBean("accountService");
+        accountService.deleteAccount(3);
+    }
+
+}
+```
+
+### 2.3 使用配置类改造案例
+
+#### 2.3.1 `Configuration`和`ComponentScan`
+
+*   `Configuration`
+
+    作用：指定当前类是一个配置类（配置类的作用和`bean.xml`一样）
+
+    细节：当配置类作为`AnnotationConfigApplicationContext`对象创建的参数时，该注解可以不用写
+
+*   `ComponentSacn`
+
+    作用：用于通过注解指定spring在创建容器时要扫描的包
+
+    属性value：它和`basePackages`的作用一样，都是指定创建容器时要扫描的包
+
+*   示例
+
+    ```java
+    @Configuration // 修饰类 标识当前是一个配置类 功能类似于applicationContext.xml
+    @ComponentScan(basePackages = "com.sonnet") // 开启包扫描 指定扫描com.sonnet包及其子包下面的类 功能类似于<context:component-scan>
+    public class SpringConfiguration {
+    
+    }
+    ```
+
+#### 2.3.2 `Bean`注解
+
+作用：用于把当前方法的返回值作为bean对象存入spring的IOC容器中
+
+属性name：用于指定bean的id。当不写时，默认值是当前方法的名称
+
+细节：当我们使用注解配置方法的时候，如果方法有参数，spring框架会去容器中查找有没有可用的bean对象，查找的方式和`AutoWired`注解是一样的
+
+```java
+package com.sonnet.config;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.apache.commons.dbutils.QueryRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+import javax.sql.DataSource;
+import java.beans.PropertyVetoException;
+
+@Configuration // 修饰类 标识当前是一个配置类 功能类似于applicationContext.xml
+@ComponentScan(basePackages = "com.sonnet") // 开启包扫描 指定扫描com.sonnet包及其子包下面的类 功能类似于<context:component-scan>
+public class SpringConfiguration {
+
+    /**
+     * @Bean 注解 它的功能类似于bean标签，修饰一个方法，方法的返回值就是我们需要管理的bean的类型
+     * 在默认的情况下，如果我们不指定bean的名称，bean的名称就是方法的名称
+     * 我们可以通过
+     * @return
+     */
+    @Bean(name = "dataSource")
+    public DataSource dataSource() {
+        ComboPooledDataSource dataSource = new ComboPooledDataSource();
+        try {
+            dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
+            dataSource.setJdbcUrl("jdbc:mysql://localhost:3306/spring_lesson");
+            dataSource.setUser("root");
+            dataSource.setPassword("root");
+            return dataSource ;
+        } catch (PropertyVetoException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @Qualifier 可以修饰方法形参 意味着可以从IOC容器中获取指定的bean
+     * @param dataSource
+     * @return
+     */
+    @Bean (name = "runner")
+    public QueryRunner runner(@Qualifier("dataSource") DataSource dataSource) {
+        return new QueryRunner(dataSource);
+    }
+}
+```
+
+#### 2.3.3 `AnnotationConfigApplicationContext`类
+
+```java
+package com.sonnet;
+
+import com.sonnet.config.SpringConfiguration;
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class TestAccount {
+
+    @Test
+    public void test01() {
+        ApplicationContext context =  new AnnotationConfigApplicationContext(SpringConfiguration.class);
+        AccountService accountService = (AccountService) context.getBean("accountService");
+        accountService.findAllAccount().forEach(System.out::println);
+    }
+}
+```
+
+#### 2.3.4 `Import`注解
+
+作用：导入其他的配置类
+
+属性value：用于指定其他配置类的字节码
+
+细节：当我们使用`Import`的注解之后，有`Ipmort`注解的类就是父配置类，而导入的都是子配置类。不再需要加`Configuration`注解，只需要在父配置类上添加`Import`注解
+
+```java
+package com.sonnet.config;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.apache.commons.dbutils.QueryRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+
+import javax.sql.DataSource;
+import java.beans.PropertyVetoException;
+
+/**
+ * 子配置类，专门描述数据库相关的配置信息
+ */
+public class DataSourceConfig {
+    /**
+     * @Bean 注解 它的功能类似于bean标签，修饰一个方法，方法的返回值就是我们需要管理的bean的类型
+     * 在默认的情况下，如果我们不指定bean的名称，bean的名称就是方法的名称
+     * 我们可以通过
+     * @return
+     */
+    @Bean(name = "dataSource")
+    public DataSource dataSource() {
+        ComboPooledDataSource dataSource = new ComboPooledDataSource();
+        try {
+            dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
+            dataSource.setJdbcUrl("jdbc:mysql://localhost:3306/spring_lesson");
+            dataSource.setUser("root");
+            dataSource.setPassword("root");
+            return dataSource ;
+        } catch (PropertyVetoException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @Qualifier 可以修饰方法形参 意味着可以从IOC容器中获取指定的bean
+     * @param dataSource
+     * @return
+     */
+    @Bean (name = "runner")
+    public QueryRunner runner(@Qualifier("dataSource") DataSource dataSource) {
+        return new QueryRunner(dataSource);
+    }
+}
+```
+
+```java
+package com.sonnet.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
+
+//@Configuration // 修饰类 标识当前是一个配置类 功能类似于applicationContext.xml
+@ComponentScan(basePackages = "com.sonnet") // 开启包扫描 指定扫描com.sonnet包及其子包下面的类 功能类似于<context:component-scan>
+@Import(value = {DataSourceConfig.class}) // 导入注解，可以导入子配置类
+public class SpringConfiguration {
+}
+```
+
+#### 2.3.5 `PropertySource`注解
+
+作用：用于指定`properties`文件的位置
+
+属性value：指定文件的名称和路径
+
+```properties
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/spring_lesson
+jdbc.username=root
+jdbc.password=root
+```
+
+```java
+package com.sonnet.config;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.apache.commons.dbutils.QueryRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.PropertySource;
+
+import javax.sql.DataSource;
+import java.beans.PropertyVetoException;
+
+/**
+ * 子配置类，专门描述数据库相关的配置信息
+ */
+@PropertySource("classpath:db.properties") // 加载类路径下的Properties配置文件
+public class DataSourceConfig {
+    @Value("${jdbc.driver}")
+    private String driver;
+
+    @Value("${jdbc.url}")
+    private String url;
+
+    @Value("${jdbc.username}")
+    private String username;
+
+    @Value("${jdbc.password}")
+    private String password;
+
+    /**
+     * @Bean 注解 它的功能类似于bean标签，修饰一个方法，方法的返回值就是我们需要管理的bean的类型
+     * 在默认的情况下，如果我们不指定bean的名称，bean的名称就是方法的名称
+     * 我们可以通过
+     * @return
+     */
+    @Bean(name = "dataSource")
+    public DataSource dataSource() {
+        ComboPooledDataSource dataSource = new ComboPooledDataSource();
+        try {
+            dataSource.setDriverClass(driver);
+            dataSource.setJdbcUrl(url);
+            dataSource.setUser(username);
+            dataSource.setPassword(password);
+            return dataSource ;
+        } catch (PropertyVetoException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @Qualifier 可以修饰方法形参 意味着可以从IOC容器中获取指定的bean
+     * @param dataSource
+     * @return
+     */
+    @Bean (name = "runner")
+    public QueryRunner runner(@Qualifier("dataSource") DataSource dataSource) {
+        return new QueryRunner(dataSource);
+    }
+}
+```
+
+#### 2.3.6 关于`@Configuration`注解的问题
+
+`@Configuration`注解加不加都对程序的结果没有影响，不会因为`@Configuration`注解不加，造成bean注入失败。
+
+`示例`
+
+```java
+package com.sonnet.pojo;
+
+public class ADataSource {
+
+    public ADataSource() {
+        System.out.println("ADataSource create");
+    }
+
+}
+```
+
+```java
+package com.sonnet.pojo;
+
+public class BRunner {
+
+    public BRunner(ADataSource aDataSource) {
+        System.out.println("BRunner create");
+    }
+}
+```
+
+```java
+package com.sonnet.config;
+
+import com.sonnet.pojo.ADataSource;
+import com.sonnet.pojo.BRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+
+@Configuration
+@ComponentScan(basePackages = {"com.sonnet"})
+public class BeanConfig {
+
+    @Bean
+    public ADataSource aDataSource() {
+        return new ADataSource();
+    }
+
+    @Bean
+    public BRunner bRunner() {
+        return new BRunner(aDataSource());
+    }
+}
+```
+
+```java
+package com.sonnet;
+
+import com.sonnet.config.BeanConfig;
+import org.junit.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class TestBean {
+
+    @Test
+    public void test01() {
+        ApplicationContext context = new AnnotationConfigApplicationContext(BeanConfig.class);
+
+    }
+}
+```
+
+`输出结果`
+
+```tex
+ADataSource create
+BRunner create
+```
+
+当我们使用`@Bean`注解修饰`aDATaSource`方法的时候，会将`ADataSource`这个bean交给容器管理（就会调用`ADataSource`的无参构造）。
+
+我是使用`@Bean`注解修饰`bRunner`方法的时候，由于容器需要用到`ADataSource`，这个时候，不再重新的创建`ADataSource`的对象，而是直接从spring容器（spring的单例池中获取）。所以`ADataSource`只会创建一次。
+
+
+
+将`@Configuration`注解后输出结果为：
+
+```tex
+ADataSource create
+ADataSource create
+BRunner create
+```
+
+第一次创建时使用`@Bean`注释`aDataSource`方法的时候创建的。第二次创建时`@Bean`注解修饰`bRunner`方法的时候，由于`BRunner`对象的创建需要依赖于`ADataSource`。此时`ADataSource`这个bean不是从单例池中获取，而是重新创建了一次。
+
+### 2.4 Spring整合Junit
+
+*   导入依赖
+
+    ```xml
+    <!--spring整合junit的依赖-->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-test</artifactId>
+        <version>5.3.29</version>
+        <scope>test</scope>
+    </dependency>
+    ```
+
+*   测试模板类
+
+    ```java
+    package com.sonnet;
+    
+    import com.sonnet.config.BeanConfig;
+    import com.sonnet.config.SpringConfiguration;
+    import com.sonnet.pojo.Account;
+    import com.sonnet.service.AccountService;
+    import org.junit.Test;
+    import org.junit.runner.RunWith;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.test.context.ContextConfiguration;
+    import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+    
+    @RunWith(SpringJUnit4ClassRunner.class) // 测试模板类需要用到一个测试启动器
+    //@ContextConfiguration(locations = {"classpath:applicationContext.xml"}) // 将测试模板类中也引入IOC环境
+    @ContextConfiguration(classes = {SpringConfiguration.class, BeanConfig.class}) // 将测试模板类中也引入IOC环境
+    public class TestJunit {
+        @Autowired
+        AccountService accountService;
+    
+        @Test
+        public void test01() {
+            Account account = accountService.findAccountById(1);
+            System.out.println(account);
+        }
+    
+    }
+    ```
+
+
+
+## 3. Spring中的AOP
+
+### 3.1 添加转账的案例
+
+`依赖`
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.sonnet.parent</groupId>
+        <artifactId>spring-study</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.sonnet</groupId>
+    <artifactId>spring-study-account-demo2</artifactId>
+    <packaging>jar</packaging>
+
+    <name>spring-study-account-demo2</name>
+    <url>http://maven.apache.org</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!--spring核心依赖-->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.3.29</version>
+        </dependency>
+        <!--dbutils组件的依赖-->
+        <dependency>
+            <groupId>commons-dbutils</groupId>
+            <artifactId>commons-dbutils</artifactId>
+            <version>1.6</version>
+        </dependency>
+        <!--mysql的驱动-->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
+        <!--c3p0连接池-->
+        <dependency>
+            <groupId>c3p0</groupId>
+            <artifactId>c3p0</artifactId>
+            <version>0.9.1.2</version>
+        </dependency>
+        <!--junit单元测试依赖-->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>1.3.2</version>
+            <scope>compile</scope>
+        </dependency>
+        <!--spring整合junit的依赖-->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <version>5.3.29</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+`配置文件`
+
+```properties
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/spring_lesson
+jdbc.username=root
+jdbc.password=root
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--加载properties配置文件-->
+    <context:property-placeholder location="db.properties"></context:property-placeholder>
+
+    <!--配置数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driver}"></property>
+        <property name="jdbcUrl" value="${jdbc.url}"></property>
+        <property name="User" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+    </bean>
+
+    <!--配置QueerRunner核心对象-->
+    <bean id="runner" class="org.apache.commons.dbutils.QueryRunner" >
+        <constructor-arg name="ds" ref="dataSource"></constructor-arg>
+    </bean>
+</beans>
+```
+
+`pojo`
+
+```java
+package com.sonnet.pojo;
+
+public class Account {
+
+    private Integer id;
+
+    private String name;
+
+    private Double money;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Double getMoney() {
+        return money;
+    }
+
+    public void setMoney(Double money) {
+        this.money = money;
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", money=" + money +
+                '}';
+    }
+}
+```
+
+`dao`
+
+```java
+package com.sonnet.dao;
+
+import com.sonnet.pojo.Account;
+
+public interface AccountDao {
+
+    // 根据用户名查询账户信息是否存在
+    public Account findAccountByName(String name);
+
+    // 修改账户信息
+    public void updateAccount(Account account);
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.dbutils.handlers.BeanHandler;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.sql.SQLException;
+
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    @Autowired
+    QueryRunner queryRunner;
+
+    // 根据用户名查询账户信息是否存在
+    @Override
+    public Account findAccountByName(String name) {
+        String sql = "select * from account where name = ?";
+        try {
+            return queryRunner.query(sql, new BeanHandler<Account>(Account.class), name);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set money=? where name=?";
+        try {
+            queryRunner.update(sql, account.getMoney(), account.getName());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+`service`
+
+```java
+package com.sonnet.service;
+
+public interface AccountService {
+
+    // 转账的方法（转出人的姓名 转入人的姓名 转账金额）
+    public void transfer(String sourceName, String targetName, Double money);
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * 什么是事务，事务指的是一组逻辑操作，这些操作是最小单位不可分割的，这些操作要么全部执行成功，要么全部执行失败
+ * 事务的特性：ACID原则
+ *      A：原子性 事务的逻辑操作必须是最小单位，不可分割的
+ *      C：一致性 指的是事务提交前和事务提交后的数据必须保持一致
+ *      I：隔离性 指的是多个事务之前必须互相独立不能影响
+ *      D：持久性 指的是事务提交之后数据必须持久化的保存在数据表中
+ * 事务的提交级别
+ *      读未提交：一个事务读到了另一个事务没有提交的数据，容易造成脏读的数据
+ *      读已提交：Oracle数据库默认的事务隔离级别，解决了脏读数据的出现，但是出现了不可重复读的现象
+ *      可重复读：MySQL默认的事务级别，解决了不可重复读的问题，但出现了幻读的问题，
+ *      可串行话：解决了所有事务的问题（脏读，重复读，幻读）
+ */
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    /**
+     * 首先判断转出人账户和转入人账户是否存在，如果存在，继续判断转出人的账户金额是否足够。
+     * 如果足够，再执行金额的扣账入账操作
+     * @param sourceName 转出人的账户姓名
+     * @param targetName 转入人的账户姓名
+     * @param money 转账金额
+     */
+    @Override
+    public void transfer(String sourceName, String targetName, Double money) {
+        // 查询转出人的账户信息
+        Account sourceAccount = accountDao.findAccountByName(sourceName);
+        // 查询转入人的账户信息
+        Account targetAccount = accountDao.findAccountByName(targetName);
+        if (sourceAccount != null && targetAccount != null) {
+            if (sourceAccount.getMoney() >= money) {
+                // 设置转出人的转账金额
+                sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                // 设置转入人的账户金额
+                targetAccount.setMoney(targetAccount.getMoney() + money);
+                // 更新账户
+                accountDao.updateAccount(sourceAccount);
+                accountDao.updateAccount(targetAccount);
+            }
+        }
+    }
+}
+```
+
+`test`
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:applicationContext.xml"})
+public class TestAccount {
+
+    @Autowired
+    AccountService accountService;
+
+    @Test
+    public void test01() {
+        accountService.transfer("zhangsan", "lisi", 500.0);
+    }
+}
+```
+
+### 3.2 改造案例
+
+#### 3.2.1 工具类的编写
 
