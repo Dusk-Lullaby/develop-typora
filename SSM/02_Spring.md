@@ -3229,5 +3229,713 @@ public class TestAccount {
 
 ### 3.2 改造案例
 
+目前代码的问题：4个数据库操作不在同一个事务里面。不在同一个事务里面的原因是这4个操作的数据库连接对象不统一。
+
+解决方案：将4个操作数据库的操作的连接对象统一。
+
+如何统一数据库的连接？
+
+`ThreadLocal`：将当前线程和数据库连接对象绑定
+
+定义一个事务管理器类
+
+​	开启事务的方法
+
+​	提交事务的方法
+
+​	回滚事务的方法
+
+​	释放资源的方法
+
 #### 3.2.1 工具类的编写
+
+```java
+package com.sonnet.utils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+/**
+ * 将当前线程对象和数据库连接进行绑定，保证业务类里面的数据库连接对象一直是同一个数据库连接对象
+ */
+@Component
+public class ConnectionUtils {
+
+    @Autowired
+    DataSource dataSource;
+
+    private ThreadLocal<Connection> threadLocal = new ThreadLocal<>();
+
+    // 获取数据库连接
+    public Connection getConnection() {
+        Connection connection = threadLocal.get();
+        try {
+            if (connection == null) { // 当前线程对象上没有绑定数据库连接
+                // 从数据库连接池里面获取一个连接到对象绑定到ThreadLocal上
+                connection = dataSource.getConnection();
+                threadLocal.set(connection);
+            }
+            return connection;
+        } catch (SQLException e) {
+            throw new RuntimeException();
+        }
+    }
+
+    // 将当前线程和数据库连接对象解绑
+    public void removeConnection() {
+        threadLocal.remove();
+    }
+}
+```
+
+```java
+package com.sonnet.utils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.sql.SQLException;
+
+/**
+ * 事务管理器 里面定义了开启事务 提交事务 回滚事务 释放资源的方法
+ */
+@Component
+public class TransactionManger {
+
+    @Autowired
+    ConnectionUtils connectionUtils;
+
+    /**
+     * 开启事务的方法 关闭事务的自动提交
+     */
+    public void beginTransactionManger() {
+        try {
+            connectionUtils.getConnection().setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 提交事务的方法
+     */
+    public void Commit() {
+        try {
+            connectionUtils.getConnection().commit();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 回滚事务的方法
+     */
+    public void rollBack() {
+        try {
+            connectionUtils.getConnection().rollback();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 释放资源的方法
+     */
+    public void release() {
+        try {
+            connectionUtils.getConnection().close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+#### 3.2.2 编写业务层和持久层事务控制代码
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import com.sonnet.utils.TransactionManger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * 什么是事务，事务指的是一组逻辑操作，这些操作是最小单位不可分割的，这些操作要么全部执行成功，要么全部执行失败
+ * 事务的特性：ACID原则
+ *      A：原子性 事务的逻辑操作必须是最小单位，不可分割的
+ *      C：一致性 指的是事务提交前和事务提交后的数据必须保持一致
+ *      I：隔离性 指的是多个事务之前必须互相独立不能影响
+ *      D：持久性 指的是事务提交之后数据必须持久化的保存在数据表中
+ * 事务的提交级别
+ *      读未提交：一个事务读到了另一个事务没有提交的数据，容易造成脏读的数据
+ *      读已提交：Oracle数据库默认的事务隔离级别，解决了脏读数据的出现，但是出现了不可重复读的现象
+ *      可重复读：MySQL默认的事务级别，解决了不可重复读的问题，但出现了幻读的问题，
+ *      可串行话：解决了所有事务的问题（脏读，重复读，幻读）
+ */
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Autowired
+    TransactionManger transactionManger;
+
+    /**
+     * 首先判断转出人账户和转入人账户是否存在，如果存在，继续判断转出人的账户金额是否足够。
+     * 如果足够，再执行金额的扣账入账操作
+     * @param sourceName 转出人的账户姓名
+     * @param targetName 转入人的账户姓名
+     * @param money 转账金额
+     */
+    @Override
+    public void transfer(String sourceName, String targetName, Double money) {
+
+        try {
+            transactionManger.beginTransactionManger();
+            // 查询转出人的账户信息
+            Account sourceAccount = accountDao.findAccountByName(sourceName);
+            // 查询转入人的账户信息
+            Account targetAccount = accountDao.findAccountByName(targetName);
+            if (sourceAccount != null && targetAccount != null) {
+                if (sourceAccount.getMoney() >= money) {
+                    // 设置转出人的转账金额
+                    sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                    // 设置转入人的账户金额
+                    targetAccount.setMoney(targetAccount.getMoney() + money);
+                    // 更新账户
+                    accountDao.updateAccount(sourceAccount);
+                    accountDao.updateAccount(targetAccount);
+                }
+            }
+            transactionManger.Commit();
+        } catch (Exception e) {
+            transactionManger.rollBack();
+            throw new RuntimeException();
+        } finally {
+            transactionManger.release();
+        }
+    }
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--加载properties配置文件-->
+    <context:property-placeholder location="db.properties"></context:property-placeholder>
+
+    <!--配置数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driver}"></property>
+        <property name="jdbcUrl" value="${jdbc.url}"></property>
+        <property name="User" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+    </bean>
+
+    <!--配置QueerRunner核心对象-->
+    <bean id="runner" class="org.apache.commons.dbutils.QueryRunner" >
+        <!--<constructor-arg name="ds" ref="dataSource"></constructor-arg>-->
+    </bean>
+</beans>
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.utils.ConnectionUtils;
+import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.dbutils.handlers.BeanHandler;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.sql.SQLException;
+
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    @Autowired
+    QueryRunner queryRunner;
+
+    @Autowired
+    ConnectionUtils connectionUtils;
+
+    // 根据用户名查询账户信息是否存在
+    @Override
+    public Account findAccountByName(String name) {
+        String sql = "select * from account where name = ?";
+        try {
+            return queryRunner.query(connectionUtils.getConnection(), sql, new BeanHandler<Account>(Account.class), name);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set money=? where name=?";
+        try {
+            queryRunner.update(connectionUtils.getConnection(), sql, account.getMoney(), account.getName());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+### 3.3 代理的分析
+
+动态代理例子：
+
+早期，电脑生产厂家同时负责生产和销售和售后三个服务
+
+![](imgs/动态代理例子1.png)
+
+后期，电脑生产厂家生意越做越大，发现无法同时三个服务，于是找了一些代理商。
+
+![](imgs/动态代理例子2.png)
+
+此时代理商负责销售和售后两个服务，而生产厂家只负责生产，这样子生产厂家的生意也越做越大了这相当于：使用动态代理增强了生产厂家对象的功能。
+
+#### 3.3.1 jdk动态代理
+
+##### 3.3.1.1 `JDK` 动态代理的概念
+
+*   特点：代理对象在程序的运行过程中创建
+
+*   作用：不修改源码的基础上对方法增强
+
+*   分类：
+
+    *   基于接口的动态代理 `jdk`
+    *   基于子类的动态代理 `cglib`
+
+*   基于接口的动态代理
+
+    *   涉及的类：`Proxy`
+    *   提供者：`JDK`官方
+
+*   如何创建代理的对象：使用`Proxy`类中的`newProxyInstance`方法
+
+*   创建代理对象的要求：被代理类最少实现一个接口，如果没有则不能使用
+
+*   `newProxyInstance `方法的参数：
+
+    *   `ClassLoader`：类加载器
+
+        它是用于加载代理对象字节码的，和被代理对象使用相同的类加载器，是固定写法（写被代理对象的类加载器）
+
+    *   `Class[]`：字节码数组
+
+        它是用于让代理对象和被代理对象有相同的方法（只要两者都实现了同一个接口，那么两者的方法必然相同，所以我们传接口的字节码文件即可）。固定写法（写接口字节码文件）
+
+    *   ` InvocationHandler`：处理器
+
+        用于提供增强的代码，它是让我们写如何代理，**我们一般都是写一个该接口的实现类。**通常情况下都是匿名内部类，但不是必须的，此接口的实现类都是谁用谁写。
+
+##### 3.3.1.2 示例
+
+```java
+package com.sonnet.dao;
+
+public interface ProductDao {
+
+    public void buyProduct(String name);
+
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.ProductDao;
+
+/**
+ * 手动模拟购买电脑
+ */
+public class Producer implements ProductDao {
+    @Override
+    public void buyProduct(String name) {
+        System.out.println(name + "购买了电脑");
+    }
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.ProductDao;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+/**
+ * 让代理对象帮助我们购买电脑
+ */
+public class Consumer {
+    public static void main(String[] args) {
+        // 自己购买电脑
+        Producer producer = new Producer();
+        producer.buyProduct("自己");
+
+        // 模拟代理对象购买电脑
+        /**
+         * newProxyInstance 产生代理对象
+         *      参数1：接口实现类的类加载器
+         *      参数2：字节码数组对象
+         *      参数3：真正干活的对象
+         */
+        ProductDao proxy = (ProductDao) Proxy.newProxyInstance(Producer.class.getClassLoader(), producer.getClass().getInterfaces(), new InvocationHandler() {
+            /**
+             *
+             * @param proxy 当前代理对象的引用
+             * @param method 当前执行的方法对象
+             * @param args 执行当前方法需要用到的参数
+             * @return 需要被增强方法的返回值
+             * @throws Throwable
+             */
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                if (method.getName().equals("buyProduct")) {
+                    method.invoke(producer, args);
+                }
+                return null;
+            }
+        });
+        proxy.buyProduct("代理对象");
+    }
+}
+```
+
+#### 3.3.2 基于子类的动态代理
+
+代理普通的Java类
+
+首先导入依赖
+
+```xml
+<dependency>
+    <groupId>cglib</groupId>
+    <artifactId>cglib</artifactId>
+    <version>3.3.0</version>
+</dependency>
+```
+
+在 `VM option`中添加`--add-opens java.base/java.lang=ALL-UNNAMED`
+
+*   特点：字节码随用随创建，随用随加载
+*   作用：不修改源码的基础上对方法增强
+*   涉及的类：`Enhancer`
+*   提供者：第三方`cglib`库
+*   如何创建对象：使用`Enhancer`类中的`create`方法
+*   创建代理对象的要求：被代理不能是最终类（也就是不能用final修饰，因为最终类不能创建子类）
+*   `create`方法的参数：
+    *   `class`：字节码，它是用于指定被代理对象的字节码
+    *   `callback`：用于提供增强的代理，一般写的都是该接口的子接口实现类：`MethodInterceptor`（为方法拦截的意思）
+
+```java
+package com.sonnet.jdbcproxy.cglib;
+
+/**
+ * 模拟自己购买电脑
+ */
+public class Provider {
+
+    public void buyProduct(String name) {
+        System.out.println(name + "购买了笔记本电脑");
+
+    }
+}
+```
+
+```java
+package com.sonnet.jdbcproxy.cglib;
+
+import net.sf.cglib.proxy.Enhancer;
+import net.sf.cglib.proxy.MethodInterceptor;
+import net.sf.cglib.proxy.MethodProxy;
+
+import java.lang.reflect.Method;
+
+/**
+ * 模拟代理对象购买电脑
+ */
+public class ProxyObject {
+    public static void main(String[] args) {
+        // 模拟自己买电脑
+        Provider provider = new Provider();
+        provider.buyProduct("自己");
+        // 模拟代理对象购买电脑
+        /**
+         * create 产生代理对象的方法
+         *      参数1：当前代理的类的字节码对象
+         *      参数2：真正干活的对象
+         */
+        Provider proxy = (Provider) Enhancer.create(Provider.class, new MethodInterceptor() {
+            /**
+             * 具体进行增强的方法
+             * @param o 当前代理对象的引用
+             * @param method 代理对象需要进行增强的方法对象
+             * @param objects 代理对象需要增强方法要用到的参数
+             * @param methodProxy 执行方法的代理对象，一般不用
+             * @return 和被增强的方法一样的返回值
+             * @throws Throwable
+             */
+            @Override
+            public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
+                if (method.getName().equals("buyProduct")) {
+                    return method.invoke(provider, objects);
+                }
+                return methodProxy.invokeSuper(o, objects);
+            }
+        });
+        proxy.buyProduct("代理对象");
+    }
+}
+```
+
+### 3.4 使用动态代理实现事务控制
+
+```java
+package com.sonnet.factory;
+
+import com.sonnet.service.AccountService;
+import com.sonnet.utils.TransactionManger;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+/**
+ * 代理工厂类 专门帮助我们产生代理对象
+ */
+public class ProxyFactory {
+
+    @Autowired
+    AccountService accountService;
+
+    @Autowired
+    TransactionManger transactionManger;
+
+    /**
+     * 产生代理对象的方法
+     * @return
+     */
+    public AccountService getAccountService() {
+        AccountService proxy = (AccountService) Proxy.newProxyInstance(AccountService.class.getClassLoader(), accountService.getClass().getInterfaces(), new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                try {
+                    if (method.getName().equals("transfer"))
+                        // 开启事务
+                        transactionManger.beginTransactionManger();
+                        // 执行业务操作
+                        method.invoke(accountService, args);
+                        // 提交事务
+                        transactionManger.commit();
+                } catch (Exception e) {
+                    // 回滚事务
+                    transactionManger.rollBack();
+                    throw new Exception();
+                } finally {
+                    // 释放资源
+                    transactionManger.release();
+                }
+                return null;
+            }
+        });
+        return proxy;
+    }
+}
+```
+
+```xml
+<!--管理代理工厂类-->
+<bean id="proxyFactory" class="com.sonnet.factory.ProxyFactory"></bean>
+
+<!--管理代理对象(基于实例化工厂管理bean)-->
+<bean id="proxy" factory-bean="proxyFactory" factory-method="getAccountService"></bean>
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import com.sonnet.utils.TransactionManger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * 什么是事务，事务指的是一组逻辑操作，这些操作是最小单位不可分割的，这些操作要么全部执行成功，要么全部执行失败
+ * 事务的特性：ACID原则
+ *      A：原子性 事务的逻辑操作必须是最小单位，不可分割的
+ *      C：一致性 指的是事务提交前和事务提交后的数据必须保持一致
+ *      I：隔离性 指的是多个事务之前必须互相独立不能影响
+ *      D：持久性 指的是事务提交之后数据必须持久化的保存在数据表中
+ * 事务的提交级别
+ *      读未提交：一个事务读到了另一个事务没有提交的数据，容易造成脏读的数据
+ *      读已提交：Oracle数据库默认的事务隔离级别，解决了脏读数据的出现，但是出现了不可重复读的现象
+ *      可重复读：MySQL默认的事务级别，解决了不可重复读的问题，但出现了幻读的问题，
+ *      可串行话：解决了所有事务的问题（脏读，重复读，幻读）
+ */
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+/*     @Autowired
+    TransactionManger transactionManger; */
+
+    /**
+     * 首先判断转出人账户和转入人账户是否存在，如果存在，继续判断转出人的账户金额是否足够。
+     * 如果足够，再执行金额的扣账入账操作
+     * @param sourceName 转出人的账户姓名
+     * @param targetName 转入人的账户姓名
+     * @param money 转账金额
+     */
+    @Override
+    public void transfer(String sourceName, String targetName, Double money) {
+
+        // 查询转出人的账户信息
+        Account sourceAccount = accountDao.findAccountByName(sourceName);
+        // 查询转入人的账户信息
+        Account targetAccount = accountDao.findAccountByName(targetName);
+        if (sourceAccount != null && targetAccount != null) {
+            if (sourceAccount.getMoney() >= money) {
+                // 设置转出人的转账金额
+                sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                // 设置转入人的账户金额
+                targetAccount.setMoney(targetAccount.getMoney() + money);
+                // 更新账户
+                accountDao.updateAccount(sourceAccount);
+                accountDao.updateAccount(targetAccount);
+            }
+        }
+
+/*
+        try {
+            transactionManger.beginTransactionManger();
+            // 查询转出人的账户信息
+            Account sourceAccount = accountDao.findAccountByName(sourceName);
+            // 查询转入人的账户信息
+            Account targetAccount = accountDao.findAccountByName(targetName);
+            if (sourceAccount != null && targetAccount != null) {
+                if (sourceAccount.getMoney() >= money) {
+                    // 设置转出人的转账金额
+                    sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                    // 设置转入人的账户金额
+                    targetAccount.setMoney(targetAccount.getMoney() + money);
+                    // 更新账户
+                    accountDao.updateAccount(sourceAccount);
+                    accountDao.updateAccount(targetAccount);
+                }
+            }
+            transactionManger.commit();
+        } catch (Exception e) {
+            transactionManger.rollBack();
+            throw new RuntimeException();
+        } finally {
+            transactionManger.release();
+        }
+*/
+    }
+}
+```
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:applicationContext.xml"})
+public class TestAccount {
+
+    @Autowired
+    @Qualifier("proxy") // 指定获取容器中 名为proxy的这个bean对象
+    AccountService accountService;
+
+    @Test
+    public void test01() {
+        accountService.transfer("zhangsan", "lisi", 500.0);
+    }
+}
+```
+
+### 3.5 AOP
+
+#### 3.5.1 AOP的基本概念
+
+![](imgs/AOP.png)
+
+AOP：面向切面编程，AOP是OOP的扩展和延伸，用来解决OOP开发中遇到的问题。
+
+AOP利用的是一种横切技术，解剖开封装的对象内部，并**将那些影响多个类的公共行为封装到一个可重用模块**，这就是所谓的`Aspect`方面/切面。所谓的切面，简单点所说，就是将哪些与业务无关，却为业务模块所共同调用的行为（方法）提取封装，减少系统的重复代码，以达到逻辑处理过程中各部分之间低耦合的隔离效果。
+
+AOP采取横向抽取机制，取代了传统的纵向继承体系重复性代码。
+
+#### 3.5.2 `springAop` --基于`AspectJ`技术
+
+##### 3.5.2.1 Aspect简介
+
+`SpringAop`的底层采用的是动态代理技术，但是动态代理(jdk动态代理` cglib`字节码代理)过于繁琐。于是spring引入了第三方的`AspectJ`框架。
+
+![](imgs/Aspect.png)
+
+##### 3.5.2.2 AOP的相关术语
+
+![](imgs/AOP相关术语.png)
+
+`JointPoint`：连接点。可能会被增强的方法
+
+`PointCut`：切点 真正被增强的方法
+
+`Advice`：增强或者通知。应用到切点方法上的增强方法
+
+`Target`：目标类 连接点方法所属的类就是目标类
+
+`Introduction`：引介 类层面的增强
+
+`Proxy`：代理对象。代理对象将增强方法应用到切点方法上
+
+`weaving`：织入 将通知方法应用到切点方法上的过程
+
+`Aspect`：切面类 增强方法所属的类就是切面类
+
+#### 3.5.3 `SpringAOP`入门(`ASpectJ XML`)
+
+##### 3.5.3.1 引入`aspectj`的依赖
+
+```xml
+```
+
+##### 3.5.3.2 编写目标类
 
