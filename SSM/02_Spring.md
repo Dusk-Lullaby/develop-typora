@@ -3935,7 +3935,867 @@ AOP采取横向抽取机制，取代了传统的纵向继承体系重复性代�
 ##### 3.5.3.1 引入`aspectj`的依赖
 
 ```xml
+<!--aspectJ的依赖-->
+<dependency>
+    <groupId>org.aspectj</groupId>
+    <artifactId>aspectjweaver</artifactId>
+    <version>1.8.7</version>
+</dependency>
+
 ```
 
 ##### 3.5.3.2 编写目标类
 
+```java
+package com.sonnet.service;
+
+public interface UserService {
+
+    public void findAll();
+
+    public void addUser();
+
+    public void updateUser();
+
+    public void deleteUser();
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.service.UserService;
+
+/**
+ * 目标类
+ */
+public class UserServiceImpl implements UserService {
+    @Override
+    public void findAll() {
+        System.out.println("findAll");
+    }
+
+    @Override
+    public void addUser() {
+        System.out.println("addUser");
+    }
+
+    @Override
+    public void updateUser() {
+        System.out.println("updateUser");
+    }
+
+    @Override
+    public void deleteUser() {
+        System.out.println("deleteUser");
+
+    }
+}
+```
+
+##### 3.5.3.3 编写切面类
+
+```java
+package com.sonnet.aspect;
+
+/**
+ * 切面类
+ */
+public class MyAspect {
+
+    // 权限校验的方法
+    public void checkPrivilege() {
+        System.out.println("开启了权限校验");
+    }
+}
+```
+
+##### 3.5.3.4 配置切面类
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--管理目标类-->
+    <bean id="userService" class="com.sonnet.service.impl.UserServiceImpl"></bean>
+
+    <!--管理切面类-->
+    <bean id="myAspect" class="com.sonnet.aspect.MyAspect"></bean>
+
+    <!--
+        配置目标类和切面类
+    -->
+    <aop:config>
+        <!--
+            配置切点
+            aop:pointcut 配置切点的标签
+                id：切点的名称 自定义 唯一即可
+                expression：切点表达式
+                    execution：切点表达式的固定写法 切点方法的形参类型 包名+类名+方法名（参数类型）
+                                * 切点方法的返回值任意
+                                (..) 代表的是切点方法的参数任意
+        -->
+        <aop:pointcut id="p1" expression="execution(* com.sonnet.service.impl.UserServiceImpl.deleteUser(..))"/>
+
+        <!--
+            配置代理对象 将通知应用到切点方法上
+            aop:aspect标签： 配置代理对象
+                ref：引用的切面类的id
+        -->
+        <aop:aspect ref="myAspect">
+            <!--
+                aop:before 前置通知的配置
+                    method：增强方法的名称
+                    pointcut-ref：引用哪一个切点
+            -->
+            <aop:before method="checkPrivilege" pointcut-ref="p1"></aop:before>
+        </aop:aspect>
+    </aop:config>
+</beans>
+```
+
+##### 3.5.3.5 测试
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.UserService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:application.xml"})
+public class TestAspectJ {
+
+    @Autowired
+    UserService userService;
+
+    @Test
+    public void test01() {
+        userService.deleteUser();
+    }
+}
+```
+
+#### 3.5.4 通知类型
+
+通知类型分为：前置通知，后置通知，环绕通知，抛出异常通知，最终通知
+
+`切面类`
+
+```java
+package com.sonnet.aspect;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+
+/**
+ * 切面类
+ */
+public class MyAspect {
+
+    // 权限校验的方法
+    public void checkPrivilege() {
+        System.out.println("开启了权限校验");
+    }
+
+    // 打印日志的方法
+    public void printLog() {
+        System.out.println("开启日志打印功能");
+    }
+
+    // 开启环绕通知的方法 环绕通知就是在目标方法前后都执行的方法
+    public void around(ProceedingJoinPoint joinPoint) {
+        try {
+            System.out.println("开启了环绕通知1");
+            joinPoint.proceed();
+            System.out.println("开启了环绕通知2");
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 抛出异常方法的通知 只有目标方法出现异常之后，才会执行的方法
+    public void throwing() {
+        System.out.println("抛出了异常");
+    }
+
+    // 最终通知 不管目标方法有没有出现异常 都会执行该方法
+    public void after() {
+        System.out.println("最终通知方法执行了");
+    }
+}
+
+```
+
+`applicationContext.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--管理目标类-->
+    <bean id="userService" class="com.sonnet.service.impl.UserServiceImpl"></bean>
+
+    <!--管理切面类-->
+    <bean id="myAspect" class="com.sonnet.aspect.MyAspect"></bean>
+
+    <!--
+        配置目标类和切面类
+    -->
+    <aop:config>
+        <!--
+            配置切点
+            aop:pointcut 配置切点的标签
+                id：切点的名称 自定义 唯一即可
+                expression：切点表达式
+                    execution：切点表达式的固定写法 切点方法的形参类型 包名+类名+方法名（参数类型）
+                                * 切点方法的返回值任意
+                                (..) 代表的是切点方法的参数任意
+        -->
+        <aop:pointcut id="p1" expression="execution(* com.sonnet.service.impl.UserServiceImpl.deleteUser(..))"/>
+        <aop:pointcut id="p2" expression="execution(* com.sonnet.service.impl.UserServiceImpl.findAll(..))"/>
+        <aop:pointcut id="p3" expression="execution(* com.sonnet.service.impl.UserServiceImpl.updateUser(..))"/>
+        <aop:pointcut id="p4" expression="execution(* com.sonnet.service.impl.UserServiceImpl.addUser(..))"/>
+        <aop:pointcut id="p5" expression="execution(* com.sonnet.service.impl.UserServiceImpl.addUser(..))"/>
+
+        <!--
+            配置代理对象 将通知应用到切点方法上
+            aop:aspect标签： 配置代理对象
+                ref：引用的切面类的id
+        -->
+        <aop:aspect ref="myAspect">
+            <!--
+                aop:before 前置通知的配置
+                    method：增强方法的名称
+                    pointcut-ref：引用哪一个切点
+            -->
+            <aop:before method="checkPrivilege" pointcut-ref="p1"></aop:before>
+            <!--
+                后置通知的配置
+                aop:after-returning：描述后置通知的标签
+            -->
+            <aop:after-returning method="printLog" pointcut-ref="p2"></aop:after-returning>
+            <!--
+                配置环绕通知
+                aop:around：描述环绕通知的标签
+            -->
+            <aop:around method="around" pointcut-ref="p3"></aop:around>
+
+            <!--
+                抛出异常通知
+                aop:after-throwing：描述抛出异常通知
+            -->
+            <aop:after-throwing method="throwing" pointcut-ref="p4"></aop:after-throwing>
+            <!--
+                最终通知的标签：aop:after
+            -->
+            <aop:after method="after" pointcut-ref="p5"></aop:after>
+        </aop:aspect>
+    </aop:config>
+</beans>
+```
+
+`TestAspectJ`
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.UserService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:application.xml"})
+public class TestAspectJ {
+
+    @Autowired
+    UserService userService;
+
+    @Test
+    public void test01() {
+        userService.deleteUser();
+    }
+
+    @Test
+    public void test02() {
+        userService.findAll();
+    }
+
+    @Test
+    public void test03() {
+        userService.updateUser();
+    }
+
+    @Test
+    public void test04() {
+        userService.addUser();
+    }
+}
+```
+
+#### 3.5.5 SpringAop入门（AspectJ 注解开发）
+
+`目标类`
+
+```java
+package com.sonnet.service;
+
+public interface UserService {
+
+    public void findAll();
+
+    public void addUser();
+
+    public void updateUser();
+
+    public void deleteUser();
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.service.UserService;
+import org.springframework.stereotype.Service;
+
+/**
+ * 目标类
+ */
+@Service
+public class UserServiceImpl implements UserService {
+    @Override
+    public void findAll() {
+        System.out.println("findAll");
+    }
+
+    @Override
+    public void addUser() {
+        //int a = 1/ 0;
+        System.out.println("addUser");
+    }
+
+    @Override
+    public void updateUser() {
+        System.out.println("updateUser");
+    }
+
+    @Override
+    public void deleteUser() {
+        System.out.println("deleteUser");
+
+    }
+}
+```
+
+`切面类`
+
+```java
+package com.sonnet.aspect;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.*;
+import org.springframework.stereotype.Component;
+
+/**
+ * 切面类
+ */
+@Component
+@Aspect // 标识当前类是一个切面类
+public class MyAspect {
+
+    // 权限校验的方法 @Before注解：前置通知的注解
+    @Before(value = "execution(* com.sonnet.service.impl.UserServiceImpl.deleteUser(..))")
+    public void checkPrivilege() {
+        System.out.println("开启了权限校验");
+    }
+
+    // 打印日志的方法 @AfterReturning：后置通知的注解
+    @AfterReturning(value = "execution(* com.sonnet.service.impl.UserServiceImpl.findAll(..))")
+    public void printLog() {
+        System.out.println("开启日志打印功能");
+    }
+
+    // 开启环绕通知的方法 环绕通知就是在目标方法前后都执行的方法 @Around：环绕通知的注解
+    @Around(value = "execution(* com.sonnet.service.impl.UserServiceImpl.updateUser(..))")
+    public void around(ProceedingJoinPoint joinPoint) {
+        try {
+            System.out.println("开启了环绕通知1");
+            joinPoint.proceed();
+            System.out.println("开启了环绕通知2");
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 抛出异常方法的通知 只有目标方法出现异常之后，才会执行的方法 @AfterThrowing：抛出异常通知的注解
+    @AfterThrowing(value = "execution(* com.sonnet.service.impl.UserServiceImpl.addUser(..))")
+    public void throwing() {
+        System.out.println("抛出了异常");
+    }
+
+    // 最终通知 不管目标方法有没有出现异常 都会执行该方法 @After：最终通知的注解
+    @After(value = "execution(* com.sonnet.service.impl.UserServiceImpl.addUser(..))")
+    public void after() {
+        System.out.println("最终通知方法执行了");
+    }
+}
+```
+
+`applicationContext.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--
+        开启spring对AOP的注解支持
+    -->
+    <aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+</beans>
+```
+
+`TestAspcetJ`
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.UserService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:application.xml"})
+public class TestAspectJ {
+
+    @Autowired
+    UserService userService;
+
+    @Test
+    public void test01() {
+        userService.deleteUser();
+    }
+
+    @Test
+    public void test02() {
+        userService.findAll();
+    }
+
+    @Test
+    public void test03() {
+        userService.updateUser();
+    }
+
+    @Test
+    public void test04() {
+        userService.addUser();
+    }
+}
+```
+
+另一种写法：
+
+```java
+package com.sonnet.aspect;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.*;
+import org.springframework.stereotype.Component;
+
+/**
+ * 切面类
+ */
+@Component
+@Aspect // 标识当前类是一个切面类
+public class MyAspect {
+
+    // 定义切点
+    @Pointcut(value = "execution(* com.sonnet.service.impl.UserServiceImpl.deleteUser(..))")
+    public void pointCut1() {
+
+    }
+
+    // 权限校验的方法 @Before注解：前置通知的注解
+    @Before(value = "execution(* com.sonnet.service.impl.UserServiceImpl.deleteUser(..))")
+    public void checkPrivilege() {
+        System.out.println("开启了权限校验");
+    }
+}
+```
+
+#### 3.5.6 使用AOP的思想改造转账案例
+
+`pojo`
+
+```java
+package com.sonnet.pojo;
+
+public class Account {
+
+    private Integer id;
+
+    private String name;
+
+    private Double money;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Double getMoney() {
+        return money;
+    }
+
+    public void setMoney(Double money) {
+        this.money = money;
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", money=" + money +
+                '}';
+    }
+}
+```
+
+`dao`
+
+```java
+package com.sonnet.dao;
+
+import com.sonnet.pojo.Account;
+
+public interface AccountDao {
+
+    // 根据用户名查询账户信息是否存在
+    public Account findAccountByName(String name);
+
+    // 修改账户信息
+    public void updateAccount(Account account);
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.utils.ConnectionUtils;
+import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.dbutils.handlers.BeanHandler;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.sql.SQLException;
+
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    @Autowired
+    QueryRunner queryRunner;
+
+    @Autowired
+    ConnectionUtils connectionUtils;
+
+    // 根据用户名查询账户信息是否存在
+    @Override
+    public Account findAccountByName(String name) {
+        String sql = "select * from account where name = ?";
+        try {
+            return queryRunner.query(connectionUtils.getConnection(), sql, new BeanHandler<Account>(Account.class), name);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set money=? where name=?";
+        try {
+            queryRunner.update(connectionUtils.getConnection(), sql, account.getMoney(), account.getName());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+`service`
+
+```java
+package com.sonnet.service;
+
+public interface AccountService {
+
+    // 转账的方法（转出人的姓名 转入人的姓名 转账金额）
+    public void transfer(String sourceName, String targetName, Double money);
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    /**
+     * 首先判断转出人账户和转入人账户是否存在，如果存在，继续判断转出人的账户金额是否足够。
+     * 如果足够，再执行金额的扣账入账操作
+     * @param sourceName 转出人的账户姓名
+     * @param targetName 转入人的账户姓名
+     * @param money 转账金额
+     */
+    @Override
+    public void transfer(String sourceName, String targetName, Double money) {
+
+        // 查询转出人的账户信息
+        Account sourceAccount = accountDao.findAccountByName(sourceName);
+        // 查询转入人的账户信息
+        Account targetAccount = accountDao.findAccountByName(targetName);
+        if (sourceAccount != null && targetAccount != null) {
+            if (sourceAccount.getMoney() >= money) {
+                // 设置转出人的转账金额
+                sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                // 设置转入人的账户金额
+                targetAccount.setMoney(targetAccount.getMoney() + money);
+                // 更新账户
+                accountDao.updateAccount(sourceAccount);
+                //int a = 10 / 0;
+                accountDao.updateAccount(targetAccount);
+            }
+        }
+    }
+}
+```
+
+`utils`
+
+```java
+package com.sonnet.utils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+/**
+ * 将当前线程对象和数据库连接进行绑定，保证业务类里面的数据库连接对象一直是同一个数据库连接对象
+ */
+@Component
+public class ConnectionUtils {
+
+    @Autowired
+    DataSource dataSource;
+
+    private ThreadLocal<Connection> threadLocal = new ThreadLocal<>();
+
+    // 获取数据库连接
+    public Connection getConnection() {
+        Connection connection = threadLocal.get();
+        try {
+            if (connection == null) { // 当前线程对象上没有绑定数据库连接
+                // 从数据库连接池里面获取一个连接到对象绑定到ThreadLocal上
+                connection = dataSource.getConnection();
+                threadLocal.set(connection);
+            }
+            return connection;
+        } catch (SQLException e) {
+            throw new RuntimeException();
+        }
+    }
+
+    // 将当前线程和数据库连接对象解绑
+    public void removeConnection() {
+        threadLocal.remove();
+    }
+}
+```
+
+```java
+package com.sonnet.utils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.sql.SQLException;
+
+/**
+ * 事务管理器 里面定义了开启事务 提交事务 回滚事务 释放资源的方法
+ */
+@Component
+public class TransactionManger {
+
+    @Autowired
+    ConnectionUtils connectionUtils;
+
+    /**
+     * 开启事务的方法 关闭事务的自动提交
+     */
+    public void beginTransactionManger() {
+        try {
+            connectionUtils.getConnection().setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 提交事务的方法
+     */
+    public void commit() {
+        try {
+            connectionUtils.getConnection().commit();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 回滚事务的方法
+     */
+    public void rollBack() {
+        try {
+            connectionUtils.getConnection().rollback();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 释放资源的方法
+     */
+    public void release() {
+        try {
+            connectionUtils.getConnection().close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+`resources`
+
+```properties
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/spring_lesson
+jdbc.username=root
+jdbc.password=root
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--加载properties配置文件-->
+    <context:property-placeholder location="db.properties"></context:property-placeholder>
+
+    <!--配置数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driver}"></property>
+        <property name="jdbcUrl" value="${jdbc.url}"></property>
+        <property name="User" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+    </bean>
+
+    <!--配置QueerRunner核心对象-->
+    <bean id="runner" class="org.apache.commons.dbutils.QueryRunner" >
+        <!--<constructor-arg name="ds" ref="dataSource"></constructor-arg>-->
+    </bean>
+
+    <!--使用AOP的思想进行事务控制-->
+    <aop:config>
+        <!--配置切点-->
+        <aop:pointcut id="p1" expression="execution(* com.sonnet.service.impl.AccountServiceImpl.transfer(..))"/>
+        <!--配置通知-->
+        <aop:aspect ref="transactionManger">
+            <!--配置前置通知 开启事务方法 beginTransactionManger-->
+            <aop:before method="beginTransactionManger" pointcut-ref="p1"></aop:before>
+            <!--配置后置通知 转账业务方法执行之后 需要进行事务提交的方法-->
+            <aop:after-returning method="commit" pointcut-ref="p1"></aop:after-returning>
+            <!--配置抛出异常通知 如果执行转账业务方法出现了异常 就要触发回滚操作 rollBack-->
+            <aop:after-throwing method="rollBack" pointcut-ref="p1"></aop:after-throwing>
+            <!--配置最终通知 关闭数据库连接的方法-->
+            <aop:after method="release" pointcut-ref="p1"></aop:after>
+        </aop:aspect>
+    </aop:config>
+</beans>
+```
+
+`test`
+
+```java
+package com.sonnet;
+
+import com.sonnet.service.AccountService;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = {"classpath:applicationContext.xml"})
+public class TestAccount {
+
+    @Autowired
+    AccountService accountService;
+
+    @Test
+    public void test01() {
+        accountService.transfer("zhangsan", "lisi", 500.0);
+    }
+}
+```
