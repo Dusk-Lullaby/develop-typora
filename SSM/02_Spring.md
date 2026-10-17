@@ -4799,3 +4799,303 @@ public class TestAccount {
     }
 }
 ```
+
+
+
+## 4. Spring中的事务与新特性
+
+### 4.1 J`dbcTemplate` 的概述和环境搭建
+
+#### 4.1.1` JdbcTemplate`的基本概述
+
+它是spring框架中提供的一个对象。是对原生jdbc的简单封装，Spring框架为我们提供了很多操作的模板类
+
+操作关系型数据库：
+
+*   `JdbcTemplate`
+*   `HibernateTemplate`
+
+操作no sql数据库：
+
+*   `RedisTemplate`
+
+操作消息队列：
+
+*   `JmsTemplate`
+
+`JdbcTemplate`的基本作用：它是用于和数据库交互的，实现数据表的crud操作。
+
+#### 4.1.2 搭建`JdbcTemplate`环境
+
+`依赖`
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.sonnet.parent</groupId>
+        <artifactId>spring-study</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.sonnet</groupId>
+    <artifactId>spring-study-jdbcTemplate</artifactId>
+    <packaging>jar</packaging>
+
+    <name>spring-study-jdbcTemplate</name>
+    <url>http://maven.apache.org</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.3.29</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+            <version>5.0.2.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+            <version>5.0.2.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.0.33</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+`Account`
+
+```java
+package com.sonnet.pojo;
+
+public class Account {
+
+    private Integer id;
+
+    private String name;
+
+    private Integer age;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+```
+
+`JdbcTeamplateDemo1`
+
+```java
+package com.sonnet.jdbcTemplate;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+/**
+ * 目前代码存在的问题：
+ *  1. 通过new的方法管理DriverManagerDataSource和 JdbcTemplate。我们使用Spring的IOC环境帮助我们管理
+ *  2. 执行sql语句的时候，没有预编译sql语句的过程。直接将值注入容易造成sql语句注入的问题
+ */
+public class JdbcTemplateDemo1 {
+
+    public static void main(String[] args) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql://localhost:3306/spring_lesson");
+        dataSource.setUsername("root");
+        dataSource.setPassword("root");
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        String sql = "insert into account(name, money) values ('wangwu', 300.0)";
+        //String sql = "delete from account where name = 'wangwu'";
+        jdbcTemplate.execute(sql);
+    }
+}
+```
+
+#### 4.1.3 JdbcTemplate在Spring的IOC中使用
+
+```properties
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/spring_lesson
+jdbc.username=root
+jdbc.password=root
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--
+        加载properties配置文件
+    -->
+    <context:property-placeholder location="db.properties"></context:property-placeholder>
+
+    <!--
+        配置数据源
+    -->
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <!--注入连接数据库的基本信息-->
+        <property name="driverClassName" value="${jdbc.driver}"></property>
+        <property name="url" value="${jdbc.url}"></property>
+        <property name="username" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+    </bean>
+
+    <!--
+        配置JdbcTemplate
+    -->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <!--注入数据源-->
+        <constructor-arg name="dataSource" ref="dataSource"></constructor-arg>
+    </bean>
+</beans>
+```
+
+```java
+package com.sonnet;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+public class TestJdbcTemplate {
+
+    public static void main(String[] args) {
+        ApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        JdbcTemplate jdbcTemplate = (JdbcTemplate) context.getBean("jdbcTemplate");
+        String sql = "insert into account(name, money) values ('laoliu', 400.0)";
+        jdbcTemplate.execute(sql);
+    }
+}
+```
+
+#### 4.1.4 JdbcTemplate的CRUD操作
+
+`MyRowMapper`
+
+```java
+package com.sonnet.rowmapper;
+
+import com.sonnet.pojo.Account;
+import org.springframework.jdbc.core.RowMapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class MyRowMapper implements RowMapper<Account> {
+
+    @Override
+    public Account mapRow(ResultSet resultSet, int i) throws SQLException {
+        int id = resultSet.getInt("id");
+        String name = resultSet.getString("name");
+        double money = resultSet.getDouble("money");
+        Account account = new Account();
+        account.setId(id);
+        account.setName(name);
+        account.setMoney(money);
+        return account;
+    }
+}
+```
+
+`TestAccount`
+
+```java
+package com.sonnet;
+
+import com.sonnet.pojo.Account;
+import com.sonnet.rowmapper.MyRowMapper;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import java.util.List;
+
+/**
+ * JdbcTemple 提供了两方法
+ *      query方法：专门执行查询的方法
+ *      update方法：专门执行更新的方法
+ */
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration (locations = {"classpath:applicationContext.xml"})
+public class TestAccount {
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    // 查询数据库操作 -- 查询所有数据库
+    @Test
+    public void test01() {
+        String sql = "select * from account";
+        List<Account> accountList = jdbcTemplate.query(sql, new MyRowMapper());
+        accountList.forEach(System.out::println);
+    }
+
+    // 查询数据库操作 -- 根据id查询
+    @Test
+    public void test02() {
+        String sql = "select * from account where id = ?";
+        System.out.println(jdbcTemplate.query(sql, new MyRowMapper(), 1).get(0));
+    }
+
+    // 聚合函数查询 -- 统计数据表中的记录
+    @Test
+    public void test03() {
+        String sql = "select count(*) from account where id > ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, 2);
+        System.out.println("总记录是" + count);
+    }
+}
+```
