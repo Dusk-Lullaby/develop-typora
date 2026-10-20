@@ -5099,3 +5099,951 @@ public class TestAccount {
     }
 }
 ```
+
+#### 4.1.5 JdbcTemplate在Dao中使用
+
+```java
+package com.sonnet.dao;
+
+import com.sonnet.pojo.Account;
+
+public interface AccountDao {
+
+    // 根据ID查询指定的账户信息
+    public Account findAccountById(Integer id);
+
+    // 新增账户信息
+    public void addAccount(Account account);
+
+    // 修改账户信息
+    public void updateAccount(Account account);
+
+    // 删除账户信息
+    public void deleteAccount(Integer id);
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.rowmapper.MyRowMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
+public class AccountDaoImpl implements AccountDao {
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Override
+    public Account findAccountById(Integer id) {
+        String sql = "select * from account where id = ?";
+        List<Account> accountList = jdbcTemplate.query(sql, new MyRowMapper(), 1);
+        return accountList.get(0);
+    }
+
+    @Override
+    public void addAccount(Account account) {
+        String sql = "insert into account(name, money) values(?,?)";
+        jdbcTemplate.update(sql, account.getName(), account.getMoney());
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set name = ?, money = ? where id = ?";
+        jdbcTemplate.update(sql, account.getName(), account.getMoney(), account.getId());
+    }
+
+    @Override
+    public void deleteAccount(Integer id) {
+        String sql = "delete from account where id = ?";
+        jdbcTemplate.update(sql, id);
+    }
+}
+```
+
+```java
+package com.sonnet;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.rowmapper.MyRowMapper;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import java.util.List;
+
+/**
+ * JdbcTemple 提供了两方法
+ *      query方法：专门执行查询的方法
+ *      update方法：专门执行更新的方法
+ */
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration (locations = {"classpath:applicationContext.xml"})
+public class TestAccount {
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    // 查询数据库操作 -- 查询所有数据库
+    @Test
+    public void test01() {
+        String sql = "select * from account";
+        List<Account> accountList = jdbcTemplate.query(sql, new MyRowMapper());
+        accountList.forEach(System.out::println);
+    }
+
+    // 查询数据库操作 -- 根据id查询
+    @Test
+    public void test02() {
+        String sql = "select * from account where id = ?";
+        System.out.println(jdbcTemplate.query(sql, new MyRowMapper(), 1).get(0));
+    }
+
+    // 聚合函数查询 -- 统计数据表中的记录
+    @Test
+    public void test03() {
+        String sql = "select count(*) from account where id > ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, 2);
+        System.out.println("总记录是" + count);
+    }
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Test
+    public void test04() {
+        Account account = accountDao.findAccountById(1);
+        System.out.println(account);
+    }
+
+    @Test
+    public void test05() {
+        Account account = new Account();
+        account.setName("jiayi");
+        account.setMoney(802.0);
+        accountDao.addAccount(account);
+    }
+
+    @Test
+    public void test06() {
+        Account account = new Account();
+        account.setId(3);
+        account.setName("wangwu2");
+        account.setMoney(1000.0);
+        accountDao.updateAccount(account);
+    }
+
+    @Test
+    public void test07() {
+        accountDao.deleteAccount(9);
+    }
+}
+```
+
+### 4.2 基于XML的AOP实现事务控制
+
+### 4.3 Spring的事务管理API
+
+1.   PlatformTransactionManager：平台事务管理器
+
+     *   平台事务管理器：接口，是Spring用于管理事务的真正的对象。
+         *   DataSourceTransactionManager：底层使用JDBC管理事务
+         *   HibernateTransactionManager ：底层使用Hibernate管理事务
+
+2.   TransactionDefinition：事务定义信息
+
+     事务定义：用于定义事务的相关的信息，隔离级别、超时信息、传播行为、是否只读
+
+     *   获取事务对象名称：
+
+         String getName()
+
+     *   获取事务隔离级别：
+
+         int getIsolationLevel() spring提供的事务隔离级别默认跟数据库的隔离级别一致。
+
+         *   ISOLATION_DEFAULT：默认级别，归属下列的某一种（spring的默认级别是数据库的默认级别）。
+         *   ISOLATION_READ_UNCOMMITTED：可以读取未提交数据。
+         *   ISOLATION_READ_COMMITTED：只能读取已提交数据，解决脏读问题（Oracle的默认级别）。
+         *   ISOLATION_REPEATABLE_READ：是否读取其它事务提交修改后的数据，解决不可重复读问题（MySQL的默认级别）。
+         *   ISOLATION_SERIALIZABLE：是否读取其他事务提交添加后的数据，解决幻读问题。
+
+     *   获取事务传播行为：
+
+         int getPropagationBehavior()
+
+         传播行为是指：什么情况下必须要开启事务（增删改），什么情况下可以不开启事务（查）。
+
+         *   REQUIRED：如果当前没有事务，就新建一个事务，如果已经存在一个事务，就加入到该事务中（默认值）。
+         *   SUPPORTS：支持当前事务，如果当前没有事务，就以非事务方式执行（没有事务）。
+         *   MANDATORY：使用当前事务，如果当前没有事务，就抛出异常。
+         *   REQUERS_NEW：新建事务，如果当前在事务中，把当前事务挂起。
+         *   NOT_SUPPORTED：以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+         *   NEVER：以非事务方式运行，如果当前存在事务，抛出异常。
+         *   NESTED：如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则执行类似REQUIRED的操作。
+
+     *   获取事务超时时间：
+
+         int getTimeout()
+
+         当提交或者回滚达到多长时间就过期。默认值是-1，没有超时限制。如果有，以秒为单位进行设置。
+
+     *   获取事务是否只读：
+
+         boolean isReadOnly()
+
+         *   读写型事务：增加、删除和修改会开启事务。
+         *   只读型事务：执行查询时，也会开启事务。
+
+         建议查询时设置为只读
+
+     *   事务隔离级别反映事务提交并发访问时的处理态度
+
+#### 4.3.1 配置编程式事务
+
+##### 4.3.1.1 搭建案例环境
+
+`porm.xml`
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.sonnet.parent</groupId>
+        <artifactId>spring-study</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.sonnet</groupId>
+    <artifactId>spring-study-transaction-demo1</artifactId>
+    <packaging>jar</packaging>
+
+    <name>spring-study-transaction-demo1</name>
+    <url>http://maven.apache.org</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.3.29</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+            <version>5.0.2.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>c3p0</groupId>
+            <artifactId>c3p0</artifactId>
+            <version>0.9.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <version>5.3.29</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.8.7</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+`pojo`
+
+```java
+package com.sonnet.pojo;
+
+public class Account {
+
+    private Integer id;
+
+    private String name;
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", money=" + money +
+                '}';
+    }
+
+    public Double getMoney() {
+        return money;
+    }
+
+    public void setMoney(Double money) {
+        this.money = money;
+    }
+
+    private Double money;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+}
+```
+
+`rowmapper`
+
+```java
+package com.sonnet.rowmapper;
+
+import com.sonnet.pojo.Account;
+import org.springframework.jdbc.core.RowMapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class MyRowMapper implements RowMapper<Account> {
+
+    @Override
+    public Account mapRow(ResultSet resultSet, int i) throws SQLException {
+        int id = resultSet.getInt("id");
+        String name = resultSet.getString("name");
+        double money = resultSet.getDouble("money");
+        Account account = new Account();
+        account.setId(id);
+        account.setName(name);
+        account.setMoney(money);
+        return account;
+    }
+}
+```
+
+`dao`
+
+```java
+package com.sonnet.dao;
+
+import com.sonnet.pojo.Account;
+
+public interface AccountDao {
+
+    // 根据用户名查询账户信息
+    public Account findAccountByName(String name);
+
+    // 修改账户信息
+    public void updateAccount(Account account);
+}
+```
+
+```java
+package com.sonnet.dao.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.rowmapper.MyRowMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public class AccountDaoImpl implements AccountDao {
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Override
+    public Account findAccountByName(String name) {
+        String sql = "select * from account where name = ?";
+        List<Account> accountList = jdbcTemplate.query(sql, new MyRowMapper(), name);
+        return accountList.get(0);
+    }
+
+    @Override
+    public void updateAccount(Account account) {
+        String sql = "update account set money = ? where name = ?";
+        jdbcTemplate.update(sql, account.getMoney(), account.getName());
+    }
+}
+```
+
+`service`
+
+```java
+package com.sonnet.service;
+
+public interface AccountService {
+
+    // 转账的业务方法
+    public void transfer(String sourceName, String targetName, double money);
+}
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Override
+    public void transfer(String sourceName, String targetName, double money) {
+        //根据账户名称查询对应的账户
+        Account sourceAccount = accountDao.findAccountByName(sourceName);
+        Account targetAccount = accountDao.findAccountByName(targetName);
+        if (sourceAccount.getMoney() >= money) {
+            sourceAccount.setMoney(sourceAccount.getMoney() - money);
+            targetAccount.setMoney(targetAccount.getMoney() + money);
+            // 执行金额的修改
+            accountDao.updateAccount(sourceAccount);
+            int i = 10 / 0;
+            accountDao.updateAccount(targetAccount);
+        }
+    }
+}
+```
+
+`applicationContext.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--管理数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/spring_lesson"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="root"></property>
+    </bean>
+
+    <!--管理JdbcTemplate-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+</beans>
+```
+
+##### 4.3.1.2 配置平台事务管理器和事务管理模板
+
+```xml
+<!--配置平台事务管理器-->
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <!--注入数据源-->
+    <property name="dataSource" ref="dataSource"></property>
+</bean>
+
+<!--配置事务管理模板-->
+<bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate">
+    <!--注入平台事务管理器-->
+    <property name="transactionManager" ref="transactionManager"></property>
+</bean>
+```
+
+##### 4.3.1.3 在业务类中进行事务控制
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Autowired
+    TransactionTemplate transactionTemplate;
+
+    @Override
+    public void transfer(final String sourceName, final String targetName, final double money) {
+
+        transactionTemplate .execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
+                //根据账户名称查询对应的账户
+                Account sourceAccount = accountDao.findAccountByName(sourceName);
+                Account targetAccount = accountDao.findAccountByName(targetName);
+                if (sourceAccount.getMoney() >= money) {
+                    sourceAccount.setMoney(sourceAccount.getMoney() - money);
+                    targetAccount.setMoney(targetAccount.getMoney() + money);
+                    // 执行金额的修改
+                    accountDao.updateAccount(sourceAccount);
+                    //int i = 10 / 0;
+                    accountDao.updateAccount(targetAccount);
+                }
+            }
+        });
+    }
+}
+```
+
+#### 4.3.2 配置声明式事务（XML方式—重点）
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/tx
+           http://www.springframework.org/schema/tx/spring-tx.xsd
+           http://www.springframework.org/schema/aop
+           http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--管理数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/spring_lesson"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="root"></property>
+    </bean>
+
+    <!--管理JdbcTemplate-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!--配置平台事务管理器-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!--注入数据源-->
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!--配置事务的增强-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <!--配置事务的属性-->
+        <tx:attributes>
+            <!--
+                指定给哪个业务方法配置事务
+                    name：业务方法的名称
+                    propagation：事务的传播行为
+            -->
+            <tx:method name="transfer" propagation="REQUIRED"></tx:method>
+        </tx:attributes>
+    </tx:advice>
+
+    <!--配置AOP-->
+    <aop:config>
+        <!--配置切点-->
+        <aop:pointcut id="p1" expression="execution(* com.sonnet.service.impl.AccountServiceImpl.transfer(..))"/>
+        <!--配置代理对象进行事务增强-->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="p1"></aop:advisor>
+    </aop:config>
+</beans>
+```
+
+#### 4.3.3 配置声明式事务（注解的方式—重点）
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/tx
+           http://www.springframework.org/schema/tx/spring-tx.xsd
+           http://www.springframework.org/schema/aop
+           http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--开启包扫描-->
+    <context:component-scan base-package="com.sonnet"></context:component-scan>
+
+    <!--管理数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/spring_lesson"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="root"></property>
+    </bean>
+
+    <!--管理JdbcTemplate-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!--配置平台事务管理器-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!--注入数据源-->
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+<!--
+    &lt;!&ndash;配置事务的增强&ndash;&gt;
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        &lt;!&ndash;配置事务的属性&ndash;&gt;
+        <tx:attributes>
+            &lt;!&ndash;
+                指定给哪个业务方法配置事务
+                    name：业务方法的名称
+                    propagation：事务的传播行为
+            &ndash;&gt;
+            <tx:method name="transfer" propagation="REQUIRED"></tx:method>
+        </tx:attributes>
+    </tx:advice>
+
+    &lt;!&ndash;配置AOP&ndash;&gt;
+    <aop:config>
+        &lt;!&ndash;配置切点&ndash;&gt;
+        <aop:pointcut id="p1" expression="execution(* com.sonnet.service.impl.AccountServiceImpl.transfer(..))"/>
+        &lt;!&ndash;配置代理对象进行事务增强&ndash;&gt;
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="p1"></aop:advisor>
+    </aop:config>
+-->
+
+    <!--
+        开启注解对事务的支持
+    -->
+    <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
+</beans>
+```
+
+```java
+package com.sonnet.service.impl;
+
+import com.sonnet.dao.AccountDao;
+import com.sonnet.pojo.Account;
+import com.sonnet.service.AccountService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * @Transactional注解既可以放在业务类上，也可以放在方法上
+ * 如果放在业务类上面，意味着当前业务类中的所有方法都会被事务控制，并且应用的都是同一钟事务隔离级别和事务传播行为
+ * 如果放在业务方法上，意味着我们可以对指定的业务方法进行事务控制，并且对不同的业务方法设置不同的事务隔离级别和传播行为
+ */
+@Service
+@Transactional(isolation = Isolation.REPEATABLE_READ, propagation = Propagation.REQUIRED)
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    AccountDao accountDao;
+
+    @Override
+    public void transfer(final String sourceName, final String targetName, final double money) {
+        //根据账户名称查询对应的账户
+        Account sourceAccount = accountDao.findAccountByName(sourceName);
+        Account targetAccount = accountDao.findAccountByName(targetName);
+        if (sourceAccount.getMoney() >= money) {
+            sourceAccount.setMoney(sourceAccount.getMoney() - money);
+            targetAccount.setMoney(targetAccount.getMoney() + money);
+            // 执行金额的修改
+            accountDao.updateAccount(sourceAccount);
+            int i = 10 / 0;
+            accountDao.updateAccount(targetAccount);
+        }
+    }
+}
+```
+
+### 4.4 Spring5中的新特性
+
+Spring Framework 5.0是在Spring Framework 4.0之后将近四年内一次重大的升级。 在这个时间框架内，主要的发展之一就是Spring Boot项目的演变。
+
+#### 4.4.1 新功能基本概述
+
+Spring Framework 5.0的最大特点之一是响应式编程（Reactive Programming）。 响应式编程核心功能和对响应式endpoints的支持可通过Spring Framework 5.0中获得。 重要变动如下列表所示：
+
+**常规升级：**
+
+*   对JDK 9运行时兼容性
+*   在Spring Framework代码中使用JDK 8特性
+*   响应式编程支持
+*   函数式Web框架
+*   Jigsaw的Java模块化
+*   对Kotlin支持
+*   舍弃的特性
+
+**基于java8兼容java9**
+
+整个 Spring5 框架的代码基于 Java8，运行时兼容JDK9，许多不建议使用的类和方法在代码库中删除使用的一些Java 8特性如下：
+
+*   核心Spring接口中的Java 8 static 方法
+*   基于Java 8反射增强的内部代码改进
+*   在框架代码中使用函数式编程——lambdas表达式和stream流
+
+**支持响应式编程**
+
+响应式编程是Spring Framework 5.0最重要的功能之一。
+
+微服务通常基于事件通信的架构构建。 应用程序被设计为对事件（或消息）做出反应。
+
+响应式编程提供了一种可选的编程风格，专注于构建应对事件的应用程序。
+
+虽然Java 8没有内置的响应式性编程支持，但是有一些框架提供了对响应式编程的支持：
+
+Reactive Streams：尝试定义与语言无关的响应性API。
+
+Reactor：Spring Pivotal团队提供的响应式编程的Java实现。
+
+Spring WebFlux：启用基于响应式编程的Web应用程序的开发。 提供类似于Spring MVC的编程模型。
+
+**函数web框架**
+
+除了响应式特性之外，Spring 5还提供了一个函数式Web框架。函数式Web框架提供了使用函数式编程风格来定义endpoints的功能。
+
+#### 4.4.2 Spring5之整合日志框架
+
+*   引入依赖
+
+```xml
+<!--日志依赖-->
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-api</artifactId>
+    <version>2.26.1</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-core</artifactId>
+    <version>2.26.1</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-slf4j2-impl</artifactId>
+    <version>2.26.1</version>
+</dependency>
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+    <version>2.0.20</version>
+</dependency>
+```
+
+*   创建log4j2.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--日志级别以及优先级排序: OFF> FATAL> ERROR> WARN> INFO> DEBUG> TRACE> ALL-->
+<!--Configuration后面的 status用于设置 log4j2自身内部的信息输出，可以不设置， 当设置成trace时，可以看到log4j2内部各种详细输出-->
+<configuration status="INFO">
+    <!--先定义所有的 appender-->
+    <appenders>
+        <!--输出日志信息到控制台-->
+        <console name="Console" target="SYSTEM_OUT">
+            <!--控制日志输出的格式-->
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level%logger{36} - %msg%n"/>
+        </console>
+    </appenders>
+    <!--然后定义 logger，只有定义 logger并引入的 appender，appender才会生效-->
+    <!--root：用于指定项目的根日志，如果没有单独指定 Logger，则会使用 root作为默认的日志输出-->
+    <loggers>
+        <root level="info">
+            <appender-ref ref="Console"/>
+        </root>
+    </loggers>
+</configuration>
+```
+
+*   test
+
+```java
+package com.sonnet;
+
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TestLog {
+
+    Logger logger = LoggerFactory.getLogger(TestLog.class);
+
+    @Test
+    public void test01() {
+        logger.info("hello world");
+    }
+}
+```
+
+#### 4.4.3 Spring5之@Nullable注解和函数式注册对象
+
+##### 4.4.3.1 @Nullable注解
+
+@Nullable注解可以使用在方法上面，属性上面，参数上面，表示方法返回可以为空，属性值可以为空，参数值可以为空
+
+*   注解用在方法上面，方法返回值可以为空
+
+    ![](imgs/nullable1.png)
+
+*   注解使用在方法参数里面，方法参数可以为空
+
+    ![](imgs/nullable2.png)
+
+*   注解使用在属性上面，属性值可以为空
+
+    ![](imgs/nullable3.png)
+
+##### 4.4.3.2 Spring5 核心容器支持函数式风格 GenericApplicationContext
+
+函数式风格创建对象，交给spring进行管理
+
+```java
+package com.sonnet;
+
+import com.sonnet.pojo.Account;
+import org.junit.Test;
+import org.springframework.context.support.GenericApplicationContext;
+
+public class TestApplicationContext {
+
+
+
+    @Test
+    public void testGenericApplicationContext() {
+        // 1. 创建GenericApplicationContext核心对象
+        GenericApplicationContext context = new GenericApplicationContext();
+        // 2. 刷新一下容器
+        context.refresh();
+        // 3. 容器注册bean的方法，来注册bean到ioc容器
+        context.registerBean("account", Account.class, ()->new Account(1002, "goudan", 900.0));
+        // 4. 获取容器中的注册的bean
+        Account  account = (Account) context.getBean("account");
+        System.out.println(account);
+    }
+}
+```
+
+##### 4.4.3.3 spring整合Junit5单元测试
+
+Junit5的框架主要有三个部分组成分别是：Junit Platform + Junit Jupiter + Junit Vintage3
+
+*   Junit Platform :
+
+    其主要作用是在 JVM 上启动测试框架。它定义了一个抽象的 TestEngine API 来定义运行在平台上的测试框架；也就是说其他的自动化测试引擎或开发人员⾃⼰定制的引擎都可以接入 Junit 实现对接和执行。同时还支持通过命令行、Gradle 和 Maven 来运行平台（这对于我们做自动化测试至关重要）
+
+*   Junit Jupiter
+
+    这是 Junit5 的核心，可以看作是承载 Junit4 原有功能的演进，包含了 JUnit 5 最新的编程模型和扩展机制；很多丰富的新特性使 JUnit ⾃动化测试更加方便、功能更加丰富和强大。也是测试需要重点学习的地方；Jupiter 本身也是⼀一个基于 Junit Platform 的引擎实现，对 JUnit 5 而言，JUnit Jupiter API 只是另一个 API！。
+
+*   Junit Vintage3
+
+    Junit 发展了10数年，Junit 3 和 Junit 4 都积累了大量的⽤用户，作为新一代框 架，这个模块是对JUnit3，JUnit4 版本兼容的测试引擎，使旧版本 junit 的⾃动化测试脚本也可以顺畅运行在 Junit5下，它也可以看作是基于 Junit Platform 实现的引擎范例。
+
+![](imgs/junit5.png)
+
+*   引入依赖
+
+    ```xml
+    <!--Junit5-->
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>5.14.4</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-test</artifactId>
+        <version>5.0.9.RELEASE </version>
+        <scope>provided</scope>
+    </dependency>
+    ```
+
+*   定义测试类
+
+    ```java
+    package com.sonnet;
+    
+    import com.sonnet.service.AccountService;
+    import org.junit.jupiter.api.Test;
+    import org.junit.jupiter.api.extension.ExtendWith;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.test.context.ContextConfiguration;
+    import org.springframework.test.context.junit.jupiter.SpringExtension;
+    import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+    
+    //@ExtendWith(SpringExtension.class)
+    //@ContextConfiguration(locations = {"classpath:applicationContext.xml"})
+    @SpringJUnitConfig(locations = {"classpath:applicationContext.xml"}) // 等价于@ExtendWith + @ContextConfiguration
+    public class TestJunit5 {
+    
+        @Autowired
+        AccountService accountService;
+    
+        @Test //Test 注解一定要是org.junit.jupiter.api.Test
+        public void test01() {
+            accountService.transfer("zhangsan", "lisi", 500);
+        }
+    }
+    ```
+
