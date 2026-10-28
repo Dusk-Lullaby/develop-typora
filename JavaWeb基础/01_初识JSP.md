@@ -106,7 +106,7 @@ Tomcat是Apache 软件基金会（Apache Software Foundation）的Jakarta 项目
 
 * `port`
 
-  端口号，默认配置8080，可修改
+  xxxxxxxxxx51 1<%--2  Created by IntelliJ IDEA.3  User: sonnet4  Date: 2026/9/115  Time: 18:276  To change this template use File | Settings | File Templates.7--%>8<%@ page contentType="text/html;charset=UTF-8" language="java" %>9<html>10<head>11    <title>主页面</title>12</head>13<body>14    <input type="button" value="查询" id="searchBtn">15    <input type="button" value="修改" id="updateBtn">16</body>17<script type="text/javascript" src="js/jquery-3.1.1.js"></script>18<script type="text/javascript">19    $(function () {20        $("#searchBtn").click(function () {21            $.ajax( {22                url:"search",23                type: "get",24                data: {},25                success: function (resp) {26                    console.log(resp);27                }28            })29        })30    })31​32    $(function () {33        $("#updateBtn").click(function () {34            $.ajax( {35                url:"update",36                type: "post",37                contentType: "application/x-www-form-urlencoded;charset=UTF-8",38                data: {39                    id: 3,40                    name: "王五",41                    sex: "女",42                    age: 3043                },44                success: function (resp) {45                    alert(resp);46                }47            })48        })49    })50</script>51</html>jsp
 
 * `protocol`
 
@@ -159,7 +159,7 @@ Tomcat是Apache 软件基金会（Apache Software Foundation）的Jakarta 项目
 
 然后启动 Tomcat 服务器
 
-#### 4.2.3 测试访问
+#### xxxxxxxxxx19 1<%--2  Created by IntelliJ IDEA.3  User: sonnet4  Date: 2026/9/15  Time: 11:046  To change this template use File | Settings | File Templates.7--%>8<%@ page contentType="text/html;charset=UTF-8" language="java" %>9<%@include file="timeout.jsp"%>10<%11    String password = (String) session.getAttribute("password");12    String username = (String) session.getAttribute("username");13    String sessionID = session.getId();14%>15<div>response数据类型： <%=response.getClass().getName()%></div>16<div>session的数据类型： <%=session.getClass().getName()%></div>17<div>sessionID： <%=sessionID%></div>18<div>用户名： <%=username%></div>19<div>密码： <%=password%></div>jsp
 
 在浏览器地址栏输入： http://localhost:9000/virtual/test.html 进行访问
 
