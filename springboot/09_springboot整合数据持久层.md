@@ -582,3 +582,164 @@ public class TestJunit {
 | assertNull      | 判断给定的对象引用是否为 null        |
 | assertNotNull   | 判断给定的对象引用是否不为 null      |
 
+```java
+package com.sonnet;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.time.Duration;
+
+@DisplayName("测试断言的测试类")
+@SpringBootTest(classes = App.class)
+public class TestAssert {
+
+    @DisplayName(("测试assertEquals"))
+    @Test
+    public void test01() {
+        /**
+         * assertEquals 判断两个值是否相等
+         * 参数1：预期值
+         * 参数2：实际值
+         * 参数3：预期值和实际值不相等，输出的提示信息
+         */
+        Assertions.assertEquals(4, getNum(2, 3), "断言失败，预期值和实际值不相等");
+        System.out.println("这是test01");
+    }
+
+    public int getNum(int num1, int num2) {
+        return num1 + num2;
+    }
+
+    @DisplayName("测试assertNotEquals")
+    @Test
+    public void test02() {
+        Object o1 = new Object();
+        Object o2 = new Object();
+        Assertions.assertNotEquals(o1, o2, "两个对象是同一个对象");
+    }
+
+    @DisplayName("测试assertSame")
+    @Test
+    public void test03() {
+        Object o1 = new Object();
+        Object o2 = new Object();
+        Assertions.assertSame(o1, o2, "两个对象指向同一个内存地址");
+        System.out.println("这是test02方法");
+    }
+
+    @DisplayName("测试AssertTrue")
+    @Test
+    public void test04() {
+        Assertions.assertTrue(2 < 1, "表达式必须为true才会执行测试方法");
+        System.out.println("这是test04方法");
+    }
+
+    @DisplayName("测试assertArrayEquals数组")
+    @Test
+    public void test05() {
+        int[] arr1 = new int[]{1, 2, 3, 4, 5};
+        int[] arr2 = new int[]{1, 2, 3, 4};
+        Assertions.assertArrayEquals(arr1, arr2, "数组内容不相等");
+        System.out.println("这是test05");
+    }
+
+    @DisplayName("测试组合断言")
+    @Test
+    public void test06() {
+        Assertions.assertAll("a",
+                ()->Assertions.assertEquals(2, 2, "两个值不相等"),
+                ()->Assertions.assertTrue(1 > 8, "预期结果必须为true"));
+        System.out.println("test06");
+    }
+
+    @DisplayName("测试超时断言")
+    @Test
+    public void test07() {
+        Assertions.assertTimeout(Duration.ofMillis(1000), ()->{
+            Thread.sleep(1500);
+        }, "执行超时");
+        System.out.println("test07");
+    }
+}
+```
+
+### 9.6.4 单元测试--前置条件
+
+junit5中的前置条件（assumption假设）类似于断言，不同之处在于不满足的断言会使测试方法失败，而不满足的前置条件只会使测试方法的执行终止。前置条件可以看成是测试方法执行的前提，当该前提不满足时，就没有继续执行的必要。
+
+```java
+@Test
+public void test08() {
+    Assumptions.assumeTrue(false, "预期结果不为true");
+    System.out.println("test08");
+}
+```
+
+### 9.6.5 单元测试--参数化测试
+
+参数化测试是JUnit5很重要的一个新特性，它使得用不同的参数多次运行测试成为了可能，也为我们的单元测试带来许多便利。
+
+*   @ValueSource：
+
+    为参数化测试指定入参来源，支持八大基础类以及
+
+    String类型,Class类型。
+
+*   @MethodSource：
+
+    表示读取指定方法的返回值作为参数化测试入参
+
+    (注意方法返回需要是一个流)。
+
+```java
+package com.sonnet;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.platform.commons.util.StringUtils;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.stream.Stream;
+
+@DisplayName("参数化测试")
+@SpringBootTest(classes = App.class)
+public class TestParameter {
+
+    @ParameterizedTest // 参数化测试的注解
+    @ValueSource(strings = {"apple", "orange", "banana"})
+    @DisplayName("基于string类型的参数进行参数化设置")
+    public void testParameter1(String string) {
+        System.out.println(string);
+        Assertions.assertTrue(StringUtils.isNotBlank(string));
+        System.out.println("testParameter1");
+    }
+    
+    @ParameterizedTest
+    @MethodSource("show")
+    @DisplayName("基于方法的参数化测试")
+    public void testParameter2(String name) {
+        System.out.println(name);
+        Assertions.assertNotNull(name);
+        System.out.println("testParameter2");
+    }
+
+    static Stream<String> show() {
+        return Stream.of("apple", "orange", "banana");
+    }
+}
+```
+
+## 9.7 springboot监控指标（见PDF）
+
+### 9.7.1 Actuator与endpoint
+
+### 9.7.2 endpoint的开启与禁用
+
+### 9.7.3 Admin Server可视化界面监控
+
