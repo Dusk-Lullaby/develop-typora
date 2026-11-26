@@ -241,3 +241,88 @@ grep过滤查找，管道符，”|“,表示前一个指令的处理结果输�
 
 ## 4. 压缩和解压
 
+**gzip/gunzip**
+
+gzip用于压缩文件；gunzip用于解压缩文件
+
+gzip会将文件压缩为*.gz的文件，源文件被压缩后不存在
+
+```shell
+[root@lullaby101 sonnet]# gzip hello.txt
+[root@lullaby101 sonnet]# ll
+总用量 4
+drwxr-xr-x. 2 root root  6 11月 25 17:31 animal
+-rw-r--r--. 1 root root 30 11月 25 17:18 hello.txt.gz
+[root@lullaby101 sonnet]# gunzip hello.txt.gz
+[root@lullaby101 sonnet]# ll
+总用量 0
+drwxr-xr-x. 2 root root 6 11月 25 17:31 animal
+-rw-r--r--. 1 root root 0 11月 25 17:18 hello.txt
+```
+
+
+
+**zip/unzip**
+
+zip用于压缩文件，unzip用于解压缩文件，这个功能在打包发布中很有用
+
+zip [选项] XXX.zip 将要压缩的内容 （压缩文件和目录的命令）
+
+-r: 递归压缩，即压缩目录
+
+-d: 指定解压后文件存放方目录
+
+```shell
+zip -r animal.zip animal/
+unzip -d /home/lullaby/ animal.zip
+```
+
+
+
+**tar**
+
+tar指令是打包指令，最后打包后的文件是.tar.gz的文件。
+
+tar既可以压缩文件也可以解压文件
+
+语法格式：tar [选项] XXX.tar.gz 打包的内容 （功能描述：打包目录，压缩后的文件格式.tar,gz）
+
+| 选项 | 功能                   |
+| ---- | ---------------------- |
+| -c   | 产生tar打包文件        |
+| -v   | 显示详细信息           |
+| -f   | 指定压缩文件后的文件名 |
+| -z   | 打包同时解压           |
+| -x   | 解压tar包文件          |
+
+需求1：将home目录下面的kobe目录压缩成myFile.tar.gz
+
+```shell
+[root@xq100 home]# tar -zcvf MyFile.tar.gz /kobe/
+[root@xq100 home]# ll
+total 4
+drwx------. 4 guojing taohuadao 158 Aug 28 15:26 guojing
+drwx------. 6 kobe kobe 194 Aug 28 16:36 kobe
+-rw-r--r--. 1 root root 1001 Aug 28 16:57 MyFile.tar.gz
+drwxr-xr-x. 3 root root 18 Aug 28 16:48 tmp
+drwx------. 5 xq xq 147 Aug 27 16:02 xq
+```
+
+需求2：将myFile.tar.gz文件解压到当前目录
+
+```shell
+[root@xq100 home]# tar -zxvf MyFile.tar.gz
+```
+
+需求3：将myFile.tar.gz文件解压到/home/tmp目录下面
+
+需要使用-C参数指定解压的位置。
+
+```shell
+[root@xq100 home]# tar -zxvf myFile.tar.gz -C /home/tmp
+[root@xq100 home]# cd tmp
+[root@xq100 tmp]# ll
+total 0
+drwx------. 7 kobe kobe 194 Aug 28 16:36 kobe
+```
+
